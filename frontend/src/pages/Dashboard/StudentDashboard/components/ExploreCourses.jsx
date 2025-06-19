@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Row,
   Col,
@@ -12,13 +12,13 @@ import {
   Skeleton,
   Empty,
   Modal,
-  message,
   Space,
   Divider,
   Tag,
   Badge,
   Avatar,
 } from "antd";
+import Model from "../../../../generalComponents/Model";
 import {
   FilterOutlined,
   UserOutlined,
@@ -30,6 +30,7 @@ import {
   BookOutlined,
   TrophyOutlined,
   LoadingOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import useFetch from "../../../../generalFunctions/useFetch";
 import { API_ENDPOINTS } from "../../../../config/api";
@@ -66,6 +67,9 @@ function ExploreCourses() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [enrollingCourseId, setEnrollingCourseId] = useState(null);
+  const [isPriceModalVisible, setIsPriceModalVisible] = useState(false);
+  const [pendingEnrollmentCourse, setPendingEnrollmentCourse] = useState(null);
+  const [isProcessingEnrollment, setIsProcessingEnrollment] = useState(false);
 
   // Debounced search term
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
@@ -118,11 +122,41 @@ function ExploreCourses() {
     setIsModalVisible(false);
     setSelectedCourse(null);
   };
-
-  const handleEnrollCourse = async (courseId) => {
+  const handleEnrollCourse = async (courseId, coursePrice = 0) => {
     try {
-      setEnrollingCourseId(courseId);
+      // Show development message for paid courses
+      if (coursePrice > 0) {
+        setPendingEnrollmentCourse({ id: courseId, price: coursePrice });
+        setIsPriceModalVisible(true);
+        // Don't set enrollingCourseId here for paid courses
+      } else {
+        setEnrollingCourseId(courseId);
+        await proceedWithEnrollment(courseId);
+      }
+    } catch (error) {
+      console.error("Enrollment error:", error);
+      window.message.error("Failed to enroll in the course. Please try again.");
+      setEnrollingCourseId(null);
+    }
+  };
+  const handlePriceModalOk = async () => {
+    if (pendingEnrollmentCourse) {
+      setIsProcessingEnrollment(true); // Set loading state for modal button
+      setIsPriceModalVisible(false);
+      setEnrollingCourseId(pendingEnrollmentCourse.id); // Set loading for course cards
+      await proceedWithEnrollment(pendingEnrollmentCourse.id);
+      setPendingEnrollmentCourse(null);
+      setIsProcessingEnrollment(false);
+    }
+  };
+  const handlePriceModalCancel = () => {
+    setIsPriceModalVisible(false);
+    setPendingEnrollmentCourse(null);
+    // Don't clear enrollingCourseId here since it shouldn't be set for price modal
+  };
 
+  const proceedWithEnrollment = async (courseId) => {
+    try {
       const response = await axios.post(
         `${API_BASE_URL}/api/course/enrollment/${courseId}`
       );
@@ -132,6 +166,10 @@ function ExploreCourses() {
         refetch();
       }
     } catch (error) {
+      if (error.status === 401) {
+        window.message.error("You need to be logged in to enroll in courses.");
+        return;
+      }
       console.error("Enrollment error:", error);
       window.message.error("Failed to enroll in the course. Please try again.");
     } finally {
@@ -355,8 +393,7 @@ function ExploreCourses() {
                       }}
                     >
                       {course.title}
-                    </Title>
-
+                    </Title>{" "}
                     {/* Instructor */}
                     <div
                       style={{
@@ -369,12 +406,11 @@ function ExploreCourses() {
                         size="small"
                         icon={<UserOutlined />}
                         style={{ marginRight: "8px" }}
-                      />
+                      />{" "}
                       <Text type="secondary" style={{ fontSize: "13px" }}>
-                        {course.userId?.name || "Unknown Instructor"}
+                        {course.userId?.fullname || "Unknown Instructor"}
                       </Text>
                     </div>
-
                     {/* Description */}
                     <Paragraph
                       ellipsis={{ rows: 2 }}
@@ -387,7 +423,6 @@ function ExploreCourses() {
                     >
                       {course.description || "No description available"}
                     </Paragraph>
-
                     {/* Course Stats */}
                     <div style={{ marginTop: "auto" }}>
                       <div
@@ -398,34 +433,17 @@ function ExploreCourses() {
                           marginBottom: "12px",
                         }}
                       >
-                        <Rate
-                          disabled
-                          defaultValue={4.5}
-                          style={{ fontSize: "12px" }}
-                        />
-                        <Text style={{ fontSize: "11px", color: "#999" }}>
-                          (1.2k reviews)
-                        </Text>
-                      </div>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: "12px",
-                        }}
-                      >
+                        {" "}
                         <Space size="small">
                           <PlayCircleOutlined style={{ color: "#1890ff" }} />
                           <Text style={{ fontSize: "12px", color: "#666" }}>
-                            {Math.floor(Math.random() * 20) + 5} lessons
+                            {course.lectureCount || 0} lessons
                           </Text>
                         </Space>
                         <Space size="small">
-                          <ClockCircleOutlined style={{ color: "#1890ff" }} />
+                          <UserOutlined style={{ color: "#1890ff" }} />
                           <Text style={{ fontSize: "12px", color: "#666" }}>
-                            {Math.floor(Math.random() * 10) + 5}h
+                            {course.enrolledStudents || 0} students
                           </Text>
                         </Space>
                       </div>
@@ -455,7 +473,9 @@ function ExploreCourses() {
                               <ShoppingCartOutlined />
                             )
                           }
-                          onClick={() => handleEnrollCourse(course._id)}
+                          onClick={() =>
+                            handleEnrollCourse(course._id, course.price)
+                          }
                           loading={enrollingCourseId === course._id}
                           style={{
                             flex: 1,
@@ -463,7 +483,7 @@ function ExploreCourses() {
                             fontSize: "12px",
                           }}
                         >
-                          Enroll
+                          {course.price > 0 ? "Enroll (Dev Mode)" : "Enroll"}
                         </Button>
                       </div>
                     </div>
@@ -520,9 +540,81 @@ function ExploreCourses() {
             onChange={handlePageChange}
             pageSizeOptions={["12", "24", "36", "48"]}
             size="default"
-          />
+          />{" "}
         </div>
       )}
+
+      {/* Price/Development Mode Modal */}
+      <Model
+        isModalOpen={isPriceModalVisible}
+        handleOk={handlePriceModalOk}
+        handleCancel={handlePriceModalCancel}
+      >
+        <div style={{ padding: "24px" }}>
+          <Title level={3} style={{ marginBottom: "16px", color: "#1890ff" }}>
+            <InfoCircleOutlined style={{ marginRight: "8px" }} />
+            Development Mode
+          </Title>
+          <Space direction="vertical" size="large" style={{ width: "100%" }}>
+            <div>
+              <Text strong style={{ fontSize: "16px" }}>
+                Note:
+              </Text>
+              <Text style={{ fontSize: "14px", marginLeft: "8px" }}>
+                This is a development environment. Payment gateways are not
+                integrated yet.
+              </Text>
+            </div>
+            <div>
+              <Text style={{ fontSize: "14px" }}>
+                In a production environment, you would be redirected to a secure
+                payment gateway to complete the purchase.
+              </Text>
+            </div>
+            <div>
+              <Text style={{ fontSize: "14px" }}>
+                For now, you can enroll in both free and paid courses for
+                testing purposes.
+              </Text>
+            </div>
+            {pendingEnrollmentCourse && (
+              <div
+                style={{
+                  backgroundColor: "#f6f8fa",
+                  padding: "16px",
+                  borderRadius: "8px",
+                  border: "1px solid #e1e4e8",
+                }}
+              >
+                <Text strong>Course Price: </Text>
+                <Tag color="blue" style={{ fontSize: "14px" }}>
+                  ${pendingEnrollmentCourse.price}
+                </Tag>
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "flex-end",
+                marginTop: "24px",
+              }}
+            >
+              <Button onClick={handlePriceModalCancel} size="large">
+                Cancel
+              </Button>{" "}
+              <Button
+                type="primary"
+                onClick={handlePriceModalOk}
+                size="large"
+                loading={isProcessingEnrollment}
+              >
+                Continue Enrollment
+              </Button>
+            </div>
+          </Space>
+        </div>
+      </Model>
 
       {/* Course Details Modal */}
       <Modal
@@ -551,11 +643,15 @@ function ExploreCourses() {
             key="enroll"
             type="primary"
             size="large"
-            onClick={() => handleEnrollCourse(selectedCourse?._id)}
+            onClick={() =>
+              handleEnrollCourse(selectedCourse?._id, selectedCourse?.price)
+            }
             loading={enrollingCourseId === selectedCourse?._id}
             style={{ borderRadius: "6px" }}
           >
-            Enroll Now - {formatPrice(selectedCourse?.price)}
+            {selectedCourse?.price > 0
+              ? `Enroll Now (Dev Mode) - ${formatPrice(selectedCourse?.price)}`
+              : `Enroll Now - ${formatPrice(selectedCourse?.price)}`}
           </Button>,
         ]}
       >
@@ -593,14 +689,15 @@ function ExploreCourses() {
                     <Space>
                       <Avatar icon={<UserOutlined />} />
                       <div>
-                        <Text strong>Instructor: </Text>
+                        {" "}
+                        <Text strong>Instructor: </Text>{" "}
                         <Text style={{ fontSize: "16px" }}>
-                          {selectedCourse.userId?.name || "Unknown Instructor"}
+                          {selectedCourse.userId?.fullname ||
+                            "Unknown Instructor"}
                         </Text>
                       </div>
                     </Space>
-                  </div>
-
+                  </div>{" "}
                   <div>
                     <Rate disabled defaultValue={4.5} />
                     <Text
@@ -610,10 +707,9 @@ function ExploreCourses() {
                         color: "#666",
                       }}
                     >
-                      4.5 (1,234 reviews)
+                      4.5 (Coming soon)
                     </Text>
                   </div>
-
                   <Row gutter={[16, 16]}>
                     <Col span={12}>
                       <Card
@@ -626,11 +722,9 @@ function ExploreCourses() {
                             color: "#1890ff",
                             marginBottom: "8px",
                           }}
-                        />
+                        />{" "}
                         <div>
-                          <Text strong>
-                            {Math.floor(Math.random() * 20) + 5}
-                          </Text>
+                          <Text strong>{selectedCourse.lectureCount || 0}</Text>
                           <br />
                           <Text type="secondary">Lessons</Text>
                         </div>
@@ -647,11 +741,9 @@ function ExploreCourses() {
                             color: "#1890ff",
                             marginBottom: "8px",
                           }}
-                        />
+                        />{" "}
                         <div>
-                          <Text strong>
-                            {Math.floor(Math.random() * 10) + 5}h
-                          </Text>
+                          <Text strong>Coming Soon</Text>
                           <br />
                           <Text type="secondary">Duration</Text>
                         </div>
@@ -668,10 +760,10 @@ function ExploreCourses() {
                             color: "#1890ff",
                             marginBottom: "8px",
                           }}
-                        />
+                        />{" "}
                         <div>
                           <Text strong>
-                            {Math.floor(Math.random() * 1000) + 100}
+                            {selectedCourse.enrolledStudents || 0}
                           </Text>
                           <br />
                           <Text type="secondary">Students</Text>

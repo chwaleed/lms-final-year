@@ -7,6 +7,7 @@ import Setting from "../Dashboard/InstructureDashboard/components/Setting";
 import NotFound from "../NotFound";
 import InstructureDashboardLayout from "../Dashboard/InstructureDashboard/InstructureDashboardLayout";
 import CourseEditPage from "../Dashboard/InstructureDashboard/pages/CourseEditPage";
+import CourseLearn from "../Dashboard/StudentDashboard/components/CourseLearn";
 
 const InstructurRoutes = [
   <Route
@@ -21,6 +22,7 @@ const InstructurRoutes = [
     <Route path="quizzes" element={<Quizzes />} />
     <Route path="students" element={<Students />} />
     <Route path="settings" element={<Setting />} />
+    <Route path="course-view/:courseId" element={<CourseLearn />} />
   </Route>,
 ];
 

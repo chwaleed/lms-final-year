@@ -97,16 +97,20 @@ const deleteCourseThumbnail = async (courseId) => {
 export const deleteCourse = async (courseId) => {
   try {
     const response = await axios.delete(
-      `http://localhost:5000/api/instructor/delete/course/${courseId}`
+      `/api/instructor/delete/course/${courseId}`
     );
 
-    if (!response.ok) {
-      throw new Error(response.data.message || "Failed to delete course");
+    if (response.data && response.data.statusCode === 200) {
+      window.message?.success(
+        response.data.message || "Course deleted successfully!"
+      );
+      return response.data.data;
     }
-
-    return response.data;
   } catch (error) {
     console.error("Delete course error:", error);
+    window.message?.error(
+      error.response?.data?.message || "Failed to delete course"
+    );
     throw error;
   }
 };

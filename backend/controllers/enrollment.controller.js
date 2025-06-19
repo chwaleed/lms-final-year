@@ -1,6 +1,8 @@
 import Enrollment from "../models/Enrollment.model.js";
 import Course from "../models/Course.model.js";
 import User from "../models/User.model.js";
+import LectureCompletion from "../models/LectureCompletion.model.js";
+import Lecture from "../models/Lecture.model.js";
 
 // Enroll a student in a course
 export const enrollInCourse = async (req, res) => {
@@ -80,12 +82,49 @@ export const getUserEnrollments = async (req, res) => {
     console.log(req.user);
     const userId = req.user._id;
     console.log("here is the userId:", userId);
-
     const enrollments = await Enrollment.find({ userId })
-      .populate("courseId", "title description thumbnail price")
+      .populate({
+        path: "courseId",
+        select: "title description thumbnail price userId",
+        populate: {
+          path: "userId",
+          select: "fullname name email",
+        },
+      })
       .sort({ enrolledAt: -1 });
 
-    res.status(200).json({ enrollments });
+    // Add progress information for each enrollment
+    const enrollmentsWithProgress = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        const courseId = enrollment.courseId._id;
+
+        // Get total lectures in course
+        const totalLectures = await Lecture.countDocuments({ courseId });
+
+        // Get completed lectures count
+        const completedLecturesCount = await LectureCompletion.countDocuments({
+          userId,
+          courseId,
+        });
+
+        // Calculate progress percentage
+        const progressPercentage =
+          totalLectures > 0
+            ? Math.round((completedLecturesCount / totalLectures) * 100)
+            : 0;
+
+        return {
+          ...enrollment.toObject(),
+          progressDetails: {
+            totalLectures,
+            completedLectures: completedLecturesCount,
+            progressPercentage,
+          },
+        };
+      })
+    );
+
+    res.status(200).json({ enrollments: enrollmentsWithProgress });
   } catch (error) {
     console.error("Error fetching user enrollments:", error);
     res.status(500).json({ message: "Server error" });
@@ -143,6 +182,61 @@ export const markCourseCompleted = async (req, res) => {
     });
   } catch (error) {
     console.error("Error marking course as completed:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get all students enrolled in instructor's courses
+export const getInstructorStudents = async (req, res) => {
+  try {
+    const instructorId = req.user._id;
+
+    // First, get all courses created by this instructor
+    const instructorCourses = await Course.find({ userId: instructorId });
+
+    if (instructorCourses.length === 0) {
+      return res.status(200).json({
+        students: [],
+        message: "No courses found for this instructor",
+      });
+    }
+
+    const courseIds = instructorCourses.map((course) => course._id);
+
+    // Get all enrollments for instructor's courses
+    const enrollments = await Enrollment.find({
+      courseId: { $in: courseIds },
+    })
+      .populate({
+        path: "userId",
+        select: "fullname email username createdAt",
+      })
+      .populate({
+        path: "courseId",
+        select: "title description",
+      })
+      .sort({ enrolledAt: -1 });
+
+    // Format the data for the frontend
+    const studentsData = enrollments.map((enrollment) => ({
+      _id: enrollment._id,
+      studentName: enrollment.userId.fullname,
+      studentEmail: enrollment.userId.email,
+      studentUsername: enrollment.userId.username,
+      courseName: enrollment.courseId.title,
+      courseId: enrollment.courseId._id,
+      enrollmentDate: enrollment.enrolledAt,
+      progress: enrollment.progress,
+      completed: enrollment.completed,
+      completedAt: enrollment.completedAt,
+    }));
+
+    res.status(200).json({
+      students: studentsData,
+      totalStudents: studentsData.length,
+    });
+  } catch (error) {
+    console.error("Error fetching instructor students:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

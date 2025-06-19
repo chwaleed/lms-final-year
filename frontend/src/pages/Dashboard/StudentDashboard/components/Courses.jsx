@@ -10,6 +10,7 @@ import {
   Select,
   Rate,
   Avatar,
+  Progress,
 } from "antd";
 import {
   BookOutlined,
@@ -20,6 +21,7 @@ import {
   SearchOutlined,
   FilterOutlined,
   EyeOutlined,
+  TrophyOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -61,14 +63,22 @@ function Courses() {
     }
     return `$${price}`;
   };
-
   const filteredCourses = enrolledCourses.filter((enrollment) => {
     const matchesSearch = enrollment.courseId.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filterStatus === "all" ||
-      enrollment.courseId.title.status === filterStatus;
+
+    let matchesFilter = true;
+    if (filterStatus === "completed") {
+      matchesFilter = enrollment.progressDetails?.progressPercentage === 100;
+    } else if (filterStatus === "in-progress") {
+      matchesFilter =
+        enrollment.progressDetails?.progressPercentage > 0 &&
+        enrollment.progressDetails?.progressPercentage < 100;
+    } else if (filterStatus === "not-started") {
+      matchesFilter = enrollment.progressDetails?.progressPercentage === 0;
+    }
+
     return matchesSearch && matchesFilter;
   });
 
@@ -80,6 +90,35 @@ function Courses() {
       return `${API_BASE_URL}/${course.thumbnail}`;
     }
     return "https://placehold.co/600x400.png";
+  };
+
+  const getProgressColor = (percentage) => {
+    if (percentage === 0) return "#d9d9d9";
+    if (percentage < 30) return "#ff4d4f";
+    if (percentage < 70) return "#faad14";
+    return "#52c41a";
+  };
+
+  const getStatusTag = (progressPercentage) => {
+    if (progressPercentage === 100) {
+      return (
+        <Tag color="success" icon={<CheckCircleOutlined />}>
+          Completed
+        </Tag>
+      );
+    } else if (progressPercentage > 0) {
+      return (
+        <Tag color="processing" icon={<PlayCircleOutlined />}>
+          In Progress
+        </Tag>
+      );
+    } else {
+      return (
+        <Tag color="default" icon={<BookOutlined />}>
+          Not Started
+        </Tag>
+      );
+    }
   };
 
   return (
@@ -95,7 +134,6 @@ function Courses() {
           </Button>
         </div>
       </div>
-
       {/* Search and Filter */}
       <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
         <Col xs={24} md={12}>
@@ -120,16 +158,15 @@ function Courses() {
             <Option value="not-started">Not Started</Option>
           </Select>
         </Col>
-      </Row>
-
+      </Row>{" "}
       {/* Course Cards */}
       <Row gutter={[16, 16]}>
-        {filteredCourses.map((course) => (
-          <Col xs={24} sm={12} lg={8} xl={6} key={course._id}>
+        {filteredCourses.map((enrollment) => (
+          <Col xs={24} sm={12} lg={8} xl={6} key={enrollment._id}>
             <Card
               hoverable
               style={{
-                height: "420px",
+                height: "480px",
                 borderRadius: "12px",
                 overflow: "hidden",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
@@ -146,8 +183,8 @@ function Courses() {
                   }}
                 >
                   <img
-                    alt={course.courseId.title}
-                    src={getCourseImage(course.courseId)}
+                    alt={enrollment.courseId.title}
+                    src={getCourseImage(enrollment.courseId)}
                     style={{
                       width: "100%",
                       height: "100%",
@@ -163,15 +200,27 @@ function Courses() {
                     }}
                   >
                     <Tag
-                      color={course.courseId.price === 0 ? "green" : "blue"}
+                      color={enrollment.courseId.price === 0 ? "green" : "blue"}
                       style={{ fontWeight: "bold" }}
                     >
-                      {formatPrice(course.courseId.price)}
+                      {formatPrice(enrollment.courseId.price)}
                     </Tag>
+                  </div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "12px",
+                      left: "12px",
+                    }}
+                  >
+                    {getStatusTag(
+                      enrollment.progressDetails?.progressPercentage || 0
+                    )}
                   </div>
                 </div>
               }
             >
+              {" "}
               <div
                 style={{
                   display: "flex",
@@ -190,7 +239,7 @@ function Courses() {
                     lineHeight: "1.3",
                   }}
                 >
-                  {course.courseId.title}
+                  {enrollment.courseId.title}
                 </Title>
 
                 {/* Instructor */}
@@ -205,9 +254,11 @@ function Courses() {
                     size="small"
                     icon={<UserOutlined />}
                     style={{ marginRight: "8px" }}
-                  />
+                  />{" "}
                   <Text type="secondary" style={{ fontSize: "13px" }}>
-                    {course.userId?.name || "Unknown Instructor"}
+                    {enrollment.courseId?.userId?.fullname ||
+                      enrollment.courseId?.userId?.name ||
+                      "Unknown Instructor"}
                   </Text>
                 </div>
 
@@ -221,8 +272,43 @@ function Courses() {
                     color: "#666",
                   }}
                 >
-                  {course.description || "No description available"}
+                  {enrollment.courseId.description ||
+                    "No description available"}
                 </Paragraph>
+
+                {/* Progress Bar */}
+                <div style={{ marginBottom: "12px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <Text style={{ fontSize: "12px", fontWeight: "500" }}>
+                      Progress
+                    </Text>
+                    <Text style={{ fontSize: "12px", color: "#666" }}>
+                      {enrollment.progressDetails?.progressPercentage || 0}%
+                    </Text>
+                  </div>
+                  <Progress
+                    percent={
+                      enrollment.progressDetails?.progressPercentage || 0
+                    }
+                    strokeColor={getProgressColor(
+                      enrollment.progressDetails?.progressPercentage || 0
+                    )}
+                    showInfo={false}
+                    size="small"
+                  />
+                  <Text style={{ fontSize: "11px", color: "#999" }}>
+                    {enrollment.progressDetails?.completedLectures || 0} of{" "}
+                    {enrollment.progressDetails?.totalLectures || 0} lectures
+                    completed
+                  </Text>
+                </div>
 
                 {/* Course Stats */}
                 <div style={{ marginTop: "auto" }}>
@@ -234,36 +320,21 @@ function Courses() {
                       marginBottom: "12px",
                     }}
                   >
-                    <Rate
-                      disabled
-                      defaultValue={4.5}
-                      style={{ fontSize: "12px" }}
-                    />
-                    <Text style={{ fontSize: "11px", color: "#999" }}>
-                      (1.2k reviews)
-                    </Text>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "12px",
-                    }}
-                  >
                     <Space size="small">
                       <PlayCircleOutlined style={{ color: "#1890ff" }} />
                       <Text style={{ fontSize: "12px", color: "#666" }}>
-                        {Math.floor(Math.random() * 20) + 5} lessons
+                        {enrollment.progressDetails?.totalLectures || 0}{" "}
+                        lectures
                       </Text>
                     </Space>
-                    <Space size="small">
-                      <ClockCircleOutlined style={{ color: "#1890ff" }} />
-                      <Text style={{ fontSize: "12px", color: "#666" }}>
-                        {Math.floor(Math.random() * 10) + 5}h
-                      </Text>
-                    </Space>
+                    {enrollment.progressDetails?.progressPercentage === 100 && (
+                      <Space size="small">
+                        <TrophyOutlined style={{ color: "#52c41a" }} />
+                        <Text style={{ fontSize: "12px", color: "#52c41a" }}>
+                          Completed
+                        </Text>
+                      </Space>
+                    )}
                   </div>
 
                   {/* Action Buttons */}
@@ -274,7 +345,7 @@ function Courses() {
                       icon={<EyeOutlined />}
                       onClick={() => {
                         navigate(
-                          `/student/course-learn/${course.courseId._id}`
+                          `/student/course-learn/${enrollment.courseId._id}`
                         );
                       }}
                       style={{
@@ -283,7 +354,11 @@ function Courses() {
                         fontSize: "12px",
                       }}
                     >
-                      Continue Learning
+                      {enrollment.progressDetails?.progressPercentage === 0
+                        ? "Start Learning"
+                        : enrollment.progressDetails?.progressPercentage === 100
+                        ? "Review Course"
+                        : "Continue Learning"}
                     </Button>
                   </div>
                 </div>
@@ -292,7 +367,6 @@ function Courses() {
           </Col>
         ))}
       </Row>
-
       {filteredCourses.length === 0 && (
         <div style={{ textAlign: "center", padding: "40px" }}>
           <BookOutlined style={{ fontSize: "48px", color: "#d9d9d9" }} />

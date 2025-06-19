@@ -5,6 +5,8 @@ import {
   handleUploadError,
 } from "../utils/upload.js";
 import Lecture from "../models/Lecture.model.js";
+import LectureCompletion from "../models/LectureCompletion.model.js";
+import Enrollment from "../models/Enrollment.model.js";
 import fs from "fs";
 
 // Controller function to create video lecture
@@ -420,5 +422,205 @@ export const getVideoMetadata = async (req, res) => {
       success: false,
       message: "Error fetching video metadata",
     });
+  }
+};
+
+// Controller to mark lecture as complete
+export const markLectureCompleted = async (req, res) => {
+  try {
+    const { lectureId } = req.params;
+    const userId = req.user._id; // Get user ID from request
+
+    // Check if lecture exists
+    const lecture = await Lecture.findById(lectureId);
+
+    if (!lecture) {
+      return res.status(404).json({
+        success: false,
+        message: "Lecture not found",
+      });
+    }
+
+    // Check if completion record already exists
+    let completion = await LectureCompletion.findOne({
+      lectureId,
+      userId,
+    });
+    if (!completion) {
+      // Create new completion record
+      completion = new LectureCompletion({
+        lectureId,
+        userId,
+        courseId: lecture.courseId,
+        completedAt: new Date(),
+      });
+    } else {
+      // Update existing completion record
+      completion.completedAt = new Date();
+    }
+    await completion.save();
+
+    // Update enrollment progress
+    await updateEnrollmentProgress(userId, lecture.courseId);
+
+    res.status(200).json({
+      success: true,
+      message: "Lecture completion status updated",
+      data: completion,
+    });
+  } catch (error) {
+    console.error("Error updating lecture completion:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating lecture completion",
+    });
+  }
+};
+
+// Controller to unmark lecture as complete
+export const unmarkLectureCompleted = async (req, res) => {
+  try {
+    const { lectureId } = req.params;
+    const userId = req.user._id;
+
+    // Find and delete completion record
+    const completion = await LectureCompletion.findOneAndDelete({
+      userId,
+      lectureId,
+    });
+
+    if (!completion) {
+      return res.status(404).json({
+        success: false,
+        message: "Lecture completion not found",
+      });
+    }
+
+    // Update enrollment progress
+    await updateEnrollmentProgress(userId, completion.courseId);
+
+    res.status(200).json({
+      success: true,
+      message: "Lecture unmarked as completed successfully",
+    });
+  } catch (error) {
+    console.error("Error unmarking lecture as completed:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error unmarking lecture as completed",
+    });
+  }
+};
+
+// Get user's completed lectures for a course
+export const getUserCompletedLectures = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user._id;
+
+    const completedLectures = await LectureCompletion.find({
+      userId,
+      courseId,
+    })
+      .populate("lectureId", "title description")
+      .sort({ completedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: completedLectures,
+    });
+  } catch (error) {
+    console.error("Error fetching completed lectures:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching completed lectures",
+    });
+  }
+};
+
+// Get course progress for a user
+export const getCourseProgress = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user._id;
+
+    // Get total lectures in course
+    const totalLectures = await Lecture.countDocuments({ courseId });
+
+    // Get completed lectures count
+    const completedLecturesCount = await LectureCompletion.countDocuments({
+      userId,
+      courseId,
+    });
+
+    // Calculate progress percentage
+    const progressPercentage =
+      totalLectures > 0
+        ? Math.round((completedLecturesCount / totalLectures) * 100)
+        : 0;
+
+    // Get completed lecture IDs
+    const completedLectures = await LectureCompletion.find({
+      userId,
+      courseId,
+    }).select("lectureId");
+
+    const completedLectureIds = completedLectures.map((comp) =>
+      comp.lectureId.toString()
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalLectures,
+        completedLectures: completedLecturesCount,
+        progressPercentage,
+        completedLectureIds,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching course progress:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching course progress",
+    });
+  }
+};
+
+// Helper function to update enrollment progress
+const updateEnrollmentProgress = async (userId, courseId) => {
+  try {
+    // Get total lectures in course
+    const totalLectures = await Lecture.countDocuments({ courseId });
+
+    // Get completed lectures count
+    const completedLecturesCount = await LectureCompletion.countDocuments({
+      userId,
+      courseId,
+    });
+
+    // Calculate progress percentage
+    const progress =
+      totalLectures > 0
+        ? Math.round((completedLecturesCount / totalLectures) * 100)
+        : 0;
+
+    // Update enrollment
+    const updateData = { progress };
+
+    // Mark as completed if 100% progress
+    if (progress === 100) {
+      updateData.completed = true;
+      updateData.completedAt = new Date();
+    } else {
+      updateData.completed = false;
+      updateData.completedAt = null;
+    }
+
+    await Enrollment.findOneAndUpdate({ userId, courseId }, updateData, {
+      new: true,
+    });
+  } catch (error) {
+    console.error("Error updating enrollment progress:", error);
   }
 };

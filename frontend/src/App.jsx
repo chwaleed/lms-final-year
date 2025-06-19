@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { userInfoStore } from "./context/store";
 import NotFound from "./pages/NotFound";
 import Loading from "./generalComponents/Loading";
+import ExploreCourses from "./pages/Dashboard/StudentDashboard/components/ExploreCourses";
 
 function AppWrapper() {
   const { user, setUser, clearUser } = userInfoStore();
@@ -67,6 +68,7 @@ function AppWrapper() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/courses" element={<ExploreCourses />} />
       <Route
         path="/login"
         element={

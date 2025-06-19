@@ -18,6 +18,9 @@ export const API_ENDPOINTS = {
   // Instructor endpoints
   CREATE_COURSE: `${API_BASE_URL}/api/instructor/create-course`,
   UPDATE_COURSE: (id) => `${API_BASE_URL}/api/instructor/course/update/${id}`,
+  INSTRUCTOR_STUDENTS: `${API_BASE_URL}/api/instructor/students`,
+  COURSE_ENROLLMENTS: (courseId) =>
+    `${API_BASE_URL}/api/instructor/course/${courseId}/enrollments`,
   UPLOAD_THUMBNAIL: (id) =>
     `${API_BASE_URL}/api/instructor/course/${id}/upload-thumbnail`,
   DELETE_THUMBNAIL: (id) =>
@@ -33,6 +36,14 @@ export const API_ENDPOINTS = {
   STREAM_VIDEO: (id) => `${API_BASE_URL}/api/lectures/stream/${id}`,
   DOWNLOAD_VIDEO: (id) => `${API_BASE_URL}/api/lectures/download/${id}`,
   VIDEO_METADATA: (id) => `${API_BASE_URL}/api/lecture/${id}/metadata`,
+
+  // Lecture completion endpoints
+  MARK_LECTURE_COMPLETE: (id) => `${API_BASE_URL}/api/lecture/${id}/complete`,
+  UNMARK_LECTURE_COMPLETE: (id) => `${API_BASE_URL}/api/lecture/${id}/complete`,
+  USER_COMPLETED_LECTURES: (courseId) =>
+    `${API_BASE_URL}/api/course/${courseId}/completed-lectures`,
+  COURSE_PROGRESS: (courseId) =>
+    `${API_BASE_URL}/api/course/${courseId}/progress`,
 };
 
 export default API_BASE_URL;

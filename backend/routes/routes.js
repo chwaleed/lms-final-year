@@ -26,10 +26,16 @@ import {
   updateLecture,
   deleteVideoLecture,
   getVideoMetadata,
+  markLectureCompleted,
+  unmarkLectureCompleted,
+  getUserCompletedLectures,
+  getCourseProgress,
 } from "../controllers/lecture.controller.js";
 import {
   enrollInCourse,
   getUserEnrollments,
+  getInstructorStudents,
+  getCourseEnrollments,
 } from "../controllers/enrollment.controller.js";
 import { thumbnailUpload } from "../utils/upload.js";
 
@@ -78,6 +84,18 @@ router.get(
   requireStudent,
   getUserEnrollments
 );
+router.get(
+  "/instructor/students",
+  verifyJWT,
+  requireInstructor,
+  getInstructorStudents
+);
+router.get(
+  "/instructor/course/:courseId/enrollments",
+  verifyJWT,
+  requireInstructor,
+  getCourseEnrollments
+);
 router.get("/courses/paginated", verifyJWT, getCoursesWithPagination);
 router.delete(
   "/instructor/delete/course/:courseId",
@@ -119,6 +137,32 @@ router.delete(
   deleteVideoLecture
 );
 router.get("/lecture/:lectureId/metadata", getVideoMetadata);
+
+// Lecture completion routes
+router.post(
+  "/lecture/:lectureId/complete",
+  verifyJWT,
+  requireStudent,
+  markLectureCompleted
+);
+router.delete(
+  "/lecture/:lectureId/complete",
+  verifyJWT,
+  requireStudent,
+  unmarkLectureCompleted
+);
+router.get(
+  "/course/:courseId/completed-lectures",
+  verifyJWT,
+  requireStudent,
+  getUserCompletedLectures
+);
+router.get(
+  "/course/:courseId/progress",
+  verifyJWT,
+  requireStudent,
+  getCourseProgress
+);
 
 router.get("/profile", verifyJWT, (req, res) => {
   const userResponse = {

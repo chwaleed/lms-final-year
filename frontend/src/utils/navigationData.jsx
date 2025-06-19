@@ -23,24 +23,24 @@ export const instructorNavigationItems = [
     label: "Courses",
     path: "courses",
   },
-  {
-    key: "3",
-    icon: <QuestionCircleOutlined />,
-    label: "Quizzes",
-    path: "quizzes",
-  },
+  // {
+  //   key: "3",
+  //   icon: <QuestionCircleOutlined />,
+  //   label: "Quizzes",
+  //   path: "quizzes",
+  // },
   {
     key: "4",
     icon: <TeamOutlined />,
     label: "Students",
     path: "students",
   },
-  {
-    key: "5",
-    icon: <SettingOutlined />,
-    label: "Settings",
-    path: "settings",
-  },
+  // {
+  //   key: "5",
+  //   icon: <SettingOutlined />,
+  //   label: "Settings",
+  //   path: "settings",
+  // },
   {
     key: "7",
     label: "Logout",

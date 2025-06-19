@@ -99,7 +99,7 @@ function Courses() {
             type="primary"
             size="small"
             ghost
-            href={`/course/${record._id}`}
+            href={`/instructor/course-view/${record._id}`}
             className="hover:bg-blue-50"
           >
             View

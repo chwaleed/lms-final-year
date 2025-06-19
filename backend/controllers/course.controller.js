@@ -1,5 +1,7 @@
 import Course from "../models/Course.model.js";
 import Enrollment from "../models/Enrollment.model.js";
+import Lecture from "../models/Lecture.model.js";
+import LectureCompletion from "../models/LectureCompletion.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -412,16 +414,27 @@ export const getAllCoursesWithPagination = asyncHandler(async (req, res) => {
 
   try {
     // Get total count for pagination
-    const totalCourses = await Course.countDocuments(searchQuery);
-
-    // Get courses with pagination
+    const totalCourses = await Course.countDocuments(searchQuery); // Get courses with pagination
     const courses = await Course.find(searchQuery)
-      .populate("userId", "name email avatar") // Include instructor info
+      .populate("userId", "fullname email avatar") // Include instructor info
       .sort(sortObject)
       .skip(skip)
       .limit(limitNumber)
       .select("-__v") // Exclude version field
       .lean(); // Use lean() for better performance
+
+    // Add lecture count to each course
+    const coursesWithLectureCount = await Promise.all(
+      courses.map(async (course) => {
+        const lectureCount = await Lecture.countDocuments({
+          courseId: course._id,
+        });
+        return {
+          ...course,
+          lectureCount,
+        };
+      })
+    );
 
     // Calculate pagination info
     const totalPages = Math.ceil(totalCourses / limitNumber);
@@ -438,9 +451,8 @@ export const getAllCoursesWithPagination = asyncHandler(async (req, res) => {
       nextPage: hasNextPage ? pageNumber + 1 : null,
       prevPage: hasPrevPage ? pageNumber - 1 : null,
     };
-
     const responseData = {
-      courses,
+      courses: coursesWithLectureCount,
       pagination: paginationInfo,
       searchQuery: search.trim(),
       filters: {
@@ -486,16 +498,23 @@ export const deleteCourse = asyncHandler(async (req, res) => {
       "Course not found or you do not have permission to delete it."
     );
   }
+  // Delete all enrollments for this course first
+  const deletedEnrollments = await Enrollment.deleteMany({ courseId });
+  console.log(
+    `Deleted ${deletedEnrollments.deletedCount} enrollments for course ${courseId}`
+  );
 
-  // Check if there are any enrollments for this course
-  const enrollmentCount = await Enrollment.countDocuments({ courseId });
+  // Delete all lecture completions for this course
+  const deletedCompletions = await LectureCompletion.deleteMany({ courseId });
+  console.log(
+    `Deleted ${deletedCompletions.deletedCount} lecture completions for course ${courseId}`
+  );
 
-  if (enrollmentCount > 0) {
-    throw new ApiError(
-      400,
-      `Cannot delete course. There are ${enrollmentCount} students enrolled in this course.`
-    );
-  }
+  // Delete all lectures for this course
+  const deletedLectures = await Lecture.deleteMany({ courseId });
+  console.log(
+    `Deleted ${deletedLectures.deletedCount} lectures for course ${courseId}`
+  );
 
   // Delete course thumbnail if it exists and is not a placeholder
   if (
@@ -514,14 +533,16 @@ export const deleteCourse = asyncHandler(async (req, res) => {
 
   // Delete the course
   await Course.findByIdAndDelete(courseId);
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { deletedCourseId: courseId },
-        "Course deleted successfully."
-      )
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        deletedCourseId: courseId,
+        deletedEnrollments: deletedEnrollments.deletedCount,
+        deletedCompletions: deletedCompletions.deletedCount,
+        deletedLectures: deletedLectures.deletedCount,
+      },
+      `Course deleted successfully. ${deletedEnrollments.deletedCount} enrollments, ${deletedCompletions.deletedCount} lecture completions, and ${deletedLectures.deletedCount} lectures were also removed.`
+    )
+  );
 });

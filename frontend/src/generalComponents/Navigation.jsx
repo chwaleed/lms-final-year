@@ -27,13 +27,13 @@ const Navigation = () => {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             {links.map((link) => (
-              <a
+              <p
                 key={link.key}
-                href="#"
-                className="text-gray-800 hover:text-blue-500 transition-colors"
+                onClick={() => navigate("/courses")}
+                className="text-gray-800 cursor-pointer hover:text-blue-500 transition-colors"
               >
                 {link.name}
-              </a>
+              </p>
             ))}
           </div>
           {/* Action Buttons */}

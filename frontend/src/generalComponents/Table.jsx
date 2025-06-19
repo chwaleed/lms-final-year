@@ -78,12 +78,12 @@ const Table = ({
       <tbody className="bg-white divide-y divide-slate-200">
         {dataToRender.map((record, index) => (
           <tr
-            key={_.get(record, "fieldtext.key") || `record-${index}`}
+            key={record?._id || record?.id || `record-${index}`}
             className="hover:bg-slate-50 transition-colors duration-150"
           >
             {columns.map((column) => (
               <td
-                key={column.key}
+                key={`${record?._id || record?.id || index}-${column.key}`}
                 className="px-6 py-4 relative whitespace-nowrap text-sm text-slate-900"
               >
                 {column.render ? column.render(record) : <div>N/A</div>}
