@@ -44,6 +44,9 @@ export const API_ENDPOINTS = {
     `${API_BASE_URL}/api/course/${courseId}/completed-lectures`,
   COURSE_PROGRESS: (courseId) =>
     `${API_BASE_URL}/api/course/${courseId}/progress`,
+
+  // Student enrollment endpoints
+  ENROLLED_COURSES: `${API_BASE_URL}/api/course/enrolled-courses`,
 };
 
 export default API_BASE_URL;

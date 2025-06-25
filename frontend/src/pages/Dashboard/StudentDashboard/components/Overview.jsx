@@ -9,6 +9,9 @@ import {
   Button,
   Typography,
   Space,
+  Spin,
+  Alert,
+  Empty,
 } from "antd";
 import {
   BookOutlined,
@@ -18,68 +21,57 @@ import {
   PlayCircleOutlined,
   CalendarOutlined,
 } from "@ant-design/icons";
+import { API_ENDPOINTS } from "../../../../config/api";
+import useFetch from "../../../../generalFunctions/useFetch";
 
 const { Title, Text } = Typography;
 
 function Overview() {
-  // Mock data - replace with actual data from API
+  // Fetch enrolled courses with progress data
+  const {
+    data: enrolledCoursesData,
+    loading: enrolledCoursesLoading,
+    error: enrolledCoursesError,
+  } = useFetch(API_ENDPOINTS.ENROLLED_COURSES);
+
+  // Process the fetched data
+  const enrolledCourses = enrolledCoursesData?.enrollments || [];
+
+  // Calculate statistics from actual data
   const stats = {
-    enrolledCourses: 5,
-    completedCourses: 2,
-    inProgressCourses: 3,
-    averageGrade: 85,
+    enrolledCourses: enrolledCourses.length,
+    completedCourses: enrolledCourses.filter(
+      (course) => course.progressDetails?.progressPercentage === 100
+    ).length,
+    inProgressCourses: enrolledCourses.filter(
+      (course) =>
+        course.progressDetails?.progressPercentage > 0 &&
+        course.progressDetails?.progressPercentage < 100
+    ).length,
+    averageGrade:
+      enrolledCourses.length > 0
+        ? Math.round(
+            enrolledCourses.reduce(
+              (sum, course) =>
+                sum + (course.progressDetails?.progressPercentage || 0),
+              0
+            ) / enrolledCourses.length
+          )
+        : 0,
   };
 
-  const recentActivities = [
-    {
-      id: 1,
-      title: "Completed Quiz: JavaScript Basics",
-      course: "Web Development",
-      time: "2 hours ago",
-      type: "quiz",
-      score: "95%",
-    },
-    {
-      id: 2,
-      title: "Submitted Assignment: React Components",
-      course: "Advanced React",
-      time: "1 day ago",
-      type: "assignment",
-      score: "Pending",
-    },
-    {
-      id: 3,
-      title: "Watched Lecture: State Management",
-      course: "Advanced React",
-      time: "2 days ago",
+  // Generate recent activities from course progress
+  const recentActivities = enrolledCourses
+    .filter((course) => course.progressDetails?.completedLectures > 0)
+    .map((course, index) => ({
+      id: course._id + index,
+      title: `Watched Lecture in ${course.courseId?.title || "Course"}`,
+      course: course.courseId?.title || "Unknown Course",
+      time: new Date(course.enrolledAt).toLocaleDateString(),
       type: "lecture",
       score: null,
-    },
-  ];
-
-  const upcomingDeadlines = [
-    {
-      id: 1,
-      title: "Final Project Submission",
-      course: "Web Development",
-      dueDate: "2025-06-20",
-      priority: "high",
-    },
-    {
-      id: 2,
-      title: "Chapter 5 Quiz",
-      course: "Database Design",
-      dueDate: "2025-06-18",
-      priority: "medium",
-    },
-    {
-      id: 3,
-      title: "Essay: Modern UI/UX Trends",
-      course: "UI/UX Design",
-      dueDate: "2025-06-22",
-      priority: "low",
-    },
-  ];
+    }))
+    .slice(0, 5); // Show only recent 5 activities
 
   const getActivityIcon = (type) => {
     switch (type) {
@@ -94,18 +86,31 @@ function Overview() {
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "high":
-        return "#ff4d4f";
-      case "medium":
-        return "#faad14";
-      case "low":
-        return "#52c41a";
-      default:
-        return "#d9d9d9";
-    }
-  };
+  // Loading state
+  if (enrolledCoursesLoading) {
+    return (
+      <div style={{ padding: "24px", textAlign: "center" }}>
+        <Spin size="large" />
+        <div style={{ marginTop: "16px" }}>
+          <Text>Loading your dashboard...</Text>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (enrolledCoursesError) {
+    return (
+      <div style={{ padding: "24px" }}>
+        <Alert
+          message="Error Loading Dashboard"
+          description="Unable to load your dashboard data. Please try refreshing the page."
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "24px" }}>
@@ -148,7 +153,7 @@ function Overview() {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Average Grade"
+              title="Average Progress"
               value={stats.averageGrade}
               suffix="%"
               prefix={<TrophyOutlined />}
@@ -160,136 +165,115 @@ function Overview() {
 
       <Row gutter={[16, 16]}>
         {/* Recent Activities */}
-        <Col xs={24} lg={12}>
-          <Card title="Recent Activities" style={{ height: "400px" }}>
-            <List
-              dataSource={recentActivities}
-              renderItem={(item) => (
-                <List.Item>
-                  <List.Item.Meta
-                    avatar={getActivityIcon(item.type)}
-                    title={
-                      <Space direction="vertical" size={0}>
-                        <Text strong>{item.title}</Text>
-                        <Text type="secondary" style={{ fontSize: "12px" }}>
-                          {item.course}
-                        </Text>
-                      </Space>
-                    }
-                    description={
-                      <Space>
-                        <Text type="secondary">{item.time}</Text>
-                        {item.score && (
-                          <Text
-                            style={{
-                              color:
-                                item.score === "Pending"
-                                  ? "#faad14"
-                                  : "#52c41a",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {item.score}
+        <Col xs={24} lg={24}>
+          <Card title="Recent Activities" style={{ minHeight: "300px" }}>
+            {recentActivities.length > 0 ? (
+              <List
+                dataSource={recentActivities}
+                renderItem={(item) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      avatar={getActivityIcon(item.type)}
+                      title={
+                        <Space direction="vertical" size={0}>
+                          <Text strong>{item.title}</Text>
+                          <Text type="secondary" style={{ fontSize: "12px" }}>
+                            {item.course}
                           </Text>
-                        )}
-                      </Space>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
-
-        {/* Upcoming Deadlines */}
-        <Col xs={24} lg={12}>
-          <Card title="Upcoming Deadlines" style={{ height: "400px" }}>
-            <List
-              dataSource={upcomingDeadlines}
-              renderItem={(item) => (
-                <List.Item>
-                  <List.Item.Meta
-                    avatar={
-                      <Avatar
-                        icon={<CalendarOutlined />}
-                        style={{
-                          backgroundColor: getPriorityColor(item.priority),
-                        }}
-                      />
-                    }
-                    title={
-                      <Space direction="vertical" size={0}>
-                        <Text strong>{item.title}</Text>
-                        <Text type="secondary" style={{ fontSize: "12px" }}>
-                          {item.course}
-                        </Text>
-                      </Space>
-                    }
-                    description={
-                      <Text type="secondary">Due: {item.dueDate}</Text>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
+                        </Space>
+                      }
+                      description={
+                        <Space>
+                          <Text type="secondary">{item.time}</Text>
+                          {item.score && (
+                            <Text
+                              style={{
+                                color:
+                                  item.score === "Pending"
+                                    ? "#faad14"
+                                    : "#52c41a",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {item.score}
+                            </Text>
+                          )}
+                        </Space>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty
+                description="No recent activities"
+                style={{ padding: "40px 0" }}
+              />
+            )}
           </Card>
         </Col>
       </Row>
 
       {/* Progress Overview */}
-      <Row gutter={[16, 16]} style={{ marginTop: "24px" }}>
-        <Col span={24}>
-          <Card title="Course Progress Overview">
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={8}>
-                <Card size="small">
-                  <div style={{ textAlign: "center" }}>
-                    <Title level={4}>Web Development</Title>
-                    <Progress
-                      type="circle"
-                      percent={75}
-                      strokeColor="#52c41a"
-                    />
-                    <div style={{ marginTop: "8px" }}>
-                      <Text>15/20 Lessons Completed</Text>
-                    </div>
-                  </div>
-                </Card>
-              </Col>
-              <Col xs={24} md={8}>
-                <Card size="small">
-                  <div style={{ textAlign: "center" }}>
-                    <Title level={4}>Advanced React</Title>
-                    <Progress
-                      type="circle"
-                      percent={60}
-                      strokeColor="#1890ff"
-                    />
-                    <div style={{ marginTop: "8px" }}>
-                      <Text>12/20 Lessons Completed</Text>
-                    </div>
-                  </div>
-                </Card>
-              </Col>
-              <Col xs={24} md={8}>
-                <Card size="small">
-                  <div style={{ textAlign: "center" }}>
-                    <Title level={4}>Database Design</Title>
-                    <Progress
-                      type="circle"
-                      percent={30}
-                      strokeColor="#faad14"
-                    />
-                    <div style={{ marginTop: "8px" }}>
-                      <Text>6/20 Lessons Completed</Text>
-                    </div>
-                  </div>
-                </Card>
-              </Col>
-            </Row>
-          </Card>
-        </Col>
-      </Row>
+      {enrolledCourses.length > 0 && (
+        <Row gutter={[16, 16]} style={{ marginTop: "24px" }}>
+          <Col span={24}>
+            <Card title="Course Progress Overview">
+              <Row gutter={[16, 16]}>
+                {enrolledCourses.slice(0, 6).map((course) => (
+                  <Col xs={24} md={8} key={course._id}>
+                    <Card size="small">
+                      <div style={{ textAlign: "center" }}>
+                        <Title level={4} style={{ marginBottom: "16px" }}>
+                          {course.courseId?.title || "Unknown Course"}
+                        </Title>
+                        <Progress
+                          type="circle"
+                          percent={
+                            course.progressDetails?.progressPercentage || 0
+                          }
+                          strokeColor={
+                            course.progressDetails?.progressPercentage === 100
+                              ? "#52c41a"
+                              : course.progressDetails?.progressPercentage > 50
+                              ? "#1890ff"
+                              : "#faad14"
+                          }
+                        />
+                        <div style={{ marginTop: "8px" }}>
+                          <Text>
+                            {course.progressDetails?.completedLectures || 0}/
+                            {course.progressDetails?.totalLectures || 0} Lessons
+                            Completed
+                          </Text>
+                        </div>
+                      </div>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      {/* Empty state for no enrolled courses */}
+      {enrolledCourses.length === 0 && (
+        <Row gutter={[16, 16]} style={{ marginTop: "24px" }}>
+          <Col span={24}>
+            <Card>
+              <Empty
+                description="You haven't enrolled in any courses yet"
+                style={{ padding: "40px 0" }}
+              >
+                <Button type="primary" href="/student/explore-courses">
+                  Explore Courses
+                </Button>
+              </Empty>
+            </Card>
+          </Col>
+        </Row>
+      )}
     </div>
   );
 }
