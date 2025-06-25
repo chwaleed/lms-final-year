@@ -16,11 +16,11 @@ const StudentRoutes = [
     <Route path="dashboard" element={<Overview />} />
     <Route path="courses" element={<Courses />} />
     <Route path="explore-courses" element={<ExploreCourses />} />
-    <Route path="quizzes" element={<Quizzes />} />
-    <Route path="assignments" element={<Assignments />} />
-    <Route path="grades" element={<Grades />} />
+    {/* <Route path="quizzes" element={<Quizzes />} /> */}
+    {/* <Route path="assignments" element={<Assignments />} /> */}
+    {/* <Route path="grades" element={<Grades />} /> */}
     <Route path="course-learn/:courseId" element={<CourseLearn />} />
-    <Route path="settings" element={<Settings />} />
+    {/* <Route path="settings" element={<Settings />} /> */}
   </Route>,
 ];
 
