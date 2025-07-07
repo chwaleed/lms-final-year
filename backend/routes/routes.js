@@ -37,6 +37,19 @@ import {
   getInstructorStudents,
   getCourseEnrollments,
 } from "../controllers/enrollment.controller.js";
+import {
+  createQuiz,
+  getQuizzesByCourse,
+  getQuiz,
+  updateQuiz,
+  deleteQuiz,
+  addQuestion,
+  updateQuestion,
+  deleteQuestion,
+  toggleQuizPublish,
+  getQuizAttempts,
+  getQuizStats,
+} from "../controllers/quiz.controller.js";
 import { thumbnailUpload } from "../utils/upload.js";
 
 const router = express.Router();
@@ -163,6 +176,49 @@ router.get(
   requireStudent,
   getCourseProgress
 );
+
+// Quiz routes (Instructor only)
+router.post("/quiz", verifyJWT, requireInstructor, createQuiz);
+router.get(
+  "/course/:courseId/quizzes",
+  verifyJWT,
+  requireInstructor,
+  getQuizzesByCourse
+);
+router.get("/quiz/:quizId", verifyJWT, requireInstructor, getQuiz);
+router.put("/quiz/:quizId", verifyJWT, requireInstructor, updateQuiz);
+router.delete("/quiz/:quizId", verifyJWT, requireInstructor, deleteQuiz);
+router.post(
+  "/quiz/:quizId/question",
+  verifyJWT,
+  requireInstructor,
+  addQuestion
+);
+router.put(
+  "/quiz/:quizId/question/:questionId",
+  verifyJWT,
+  requireInstructor,
+  updateQuestion
+);
+router.delete(
+  "/quiz/:quizId/question/:questionId",
+  verifyJWT,
+  requireInstructor,
+  deleteQuestion
+);
+router.put(
+  "/quiz/:quizId/publish",
+  verifyJWT,
+  requireInstructor,
+  toggleQuizPublish
+);
+router.get(
+  "/quiz/:quizId/attempts",
+  verifyJWT,
+  requireInstructor,
+  getQuizAttempts
+);
+router.get("/quiz/:quizId/stats", verifyJWT, requireInstructor, getQuizStats);
 
 router.get("/profile", verifyJWT, (req, res) => {
   const userResponse = {

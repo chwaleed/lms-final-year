@@ -47,6 +47,22 @@ export const API_ENDPOINTS = {
 
   // Student enrollment endpoints
   ENROLLED_COURSES: `${API_BASE_URL}/api/course/enrolled-courses`,
+
+  // Quiz endpoints
+  CREATE_QUIZ: `${API_BASE_URL}/api/quiz`,
+  QUIZZES_BY_COURSE: (courseId) =>
+    `${API_BASE_URL}/api/course/${courseId}/quizzes`,
+  QUIZ_BY_ID: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}`,
+  UPDATE_QUIZ: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}`,
+  DELETE_QUIZ: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}`,
+  ADD_QUESTION: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/question`,
+  UPDATE_QUESTION: (quizId, questionId) =>
+    `${API_BASE_URL}/api/quiz/${quizId}/question/${questionId}`,
+  DELETE_QUESTION: (quizId, questionId) =>
+    `${API_BASE_URL}/api/quiz/${quizId}/question/${questionId}`,
+  TOGGLE_QUIZ_PUBLISH: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/publish`,
+  QUIZ_ATTEMPTS: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/attempts`,
+  QUIZ_STATS: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/stats`,
 };
 
 export default API_BASE_URL;

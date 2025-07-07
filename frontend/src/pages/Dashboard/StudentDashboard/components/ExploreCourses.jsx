@@ -152,7 +152,6 @@ function ExploreCourses() {
   const handlePriceModalCancel = () => {
     setIsPriceModalVisible(false);
     setPendingEnrollmentCourse(null);
-    // Don't clear enrollingCourseId here since it shouldn't be set for price modal
   };
 
   const proceedWithEnrollment = async (courseId) => {
