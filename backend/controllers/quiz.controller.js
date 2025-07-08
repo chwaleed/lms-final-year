@@ -1,6 +1,7 @@
 import Quiz from "../models/Quiz.model.js";
 import QuizAttempt from "../models/QuizAttempt.model.js";
 import Course from "../models/Course.model.js";
+import Enrollment from "../models/Enrollment.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -415,3 +416,492 @@ export const getQuizStats = asyncHandler(async (req, res) => {
       new ApiResponse(200, stats, "Quiz statistics retrieved successfully.")
     );
 });
+
+// Student Quiz Functions
+
+// Get published quizzes for enrolled course
+export const getStudentQuizzes = asyncHandler(async (req, res) => {
+  const { courseId } = req.params;
+  const { _id: studentId } = req.user;
+
+  if (!courseId) {
+    throw new ApiError(400, "Course ID is required.");
+  }
+
+  // Check if student is enrolled in the course
+  const enrollment = await Enrollment.findOne({
+    courseId,
+    userId: studentId,
+  });
+  if (!enrollment) {
+    throw new ApiError(403, "You are not enrolled in this course.");
+  }
+
+  // Get published quizzes for the course
+  const quizzes = await Quiz.find({ courseId, isPublished: true })
+    .select("-questions.options.isCorrect")
+    .sort({ createdAt: -1 });
+
+  // Get student's attempts for each quiz
+  const quizzesWithAttempts = await Promise.all(
+    quizzes.map(async (quiz) => {
+      const attempts = await QuizAttempt.find({
+        quizId: quiz._id,
+        studentId,
+      }).sort({ createdAt: -1 });
+
+      const quizObj = quiz.toObject();
+      quizObj.studentAttempts = attempts.length;
+      quizObj.bestScore =
+        attempts.length > 0
+          ? Math.max(...attempts.map((a) => a.percentage))
+          : null;
+      quizObj.lastAttempt = attempts.length > 0 ? attempts[0] : null;
+
+      // Check if quiz is available based on dates
+      const now = new Date();
+      quizObj.isAvailable = true;
+
+      if (quiz.availableFrom && now < new Date(quiz.availableFrom)) {
+        quizObj.isAvailable = false;
+        quizObj.availabilityStatus = "not_yet_available";
+      } else if (quiz.availableTo && now > new Date(quiz.availableTo)) {
+        quizObj.isAvailable = false;
+        quizObj.availabilityStatus = "expired";
+      } else if (quiz.dueDate && now > new Date(quiz.dueDate)) {
+        quizObj.availabilityStatus = "overdue";
+      } else {
+        quizObj.availabilityStatus = "available";
+      }
+
+      // Check if student can take the quiz (attempt limit)
+      quizObj.canTakeQuiz =
+        quizObj.isAvailable && attempts.length < quiz.attempts;
+
+      return quizObj;
+    })
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        quizzesWithAttempts,
+        "Student quizzes retrieved successfully."
+      )
+    );
+});
+
+// Get quiz for student to take (without correct answers)
+export const getStudentQuiz = asyncHandler(async (req, res) => {
+  const { quizId } = req.params;
+  const { _id: studentId } = req.user;
+
+  if (!quizId) {
+    throw new ApiError(400, "Quiz ID is required.");
+  }
+
+  const quiz = await Quiz.findOne({ _id: quizId, isPublished: true }).populate(
+    "courseId",
+    "title"
+  );
+
+  if (!quiz) {
+    throw new ApiError(404, "Quiz not found or not published.");
+  }
+
+  // Check if student is enrolled in the course
+  const enrollment = await Enrollment.findOne({
+    courseId: quiz.courseId._id,
+    userId: studentId,
+  });
+  if (!enrollment) {
+    throw new ApiError(403, "You are not enrolled in this course.");
+  }
+
+  // Check availability
+  const now = new Date();
+  if (quiz.availableFrom && now < new Date(quiz.availableFrom)) {
+    throw new ApiError(400, "Quiz is not yet available.");
+  }
+  if (quiz.availableTo && now > new Date(quiz.availableTo)) {
+    throw new ApiError(400, "Quiz is no longer available.");
+  }
+
+  // Check attempt limit
+  const studentAttempts = await QuizAttempt.find({ quizId, studentId });
+  if (studentAttempts.length >= quiz.attempts) {
+    throw new ApiError(
+      400,
+      "You have reached the maximum number of attempts for this quiz."
+    );
+  }
+
+  // Remove correct answers from options
+  const quizForStudent = quiz.toObject();
+  quizForStudent.questions = quiz.questions.map((question) => ({
+    ...question.toObject(),
+    options: question.options.map((option) => ({
+      text: option.text,
+      _id: option._id,
+    })),
+  }));
+
+  // Shuffle questions if enabled
+  if (quiz.shuffleQuestions) {
+    quizForStudent.questions = shuffleArray(quizForStudent.questions);
+  }
+
+  // Shuffle answers if enabled
+  if (quiz.shuffleAnswers) {
+    quizForStudent.questions = quizForStudent.questions.map((question) => ({
+      ...question,
+      options: shuffleArray(question.options),
+    }));
+  }
+
+  quizForStudent.studentAttempts = studentAttempts.length;
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, quizForStudent, "Quiz retrieved for student."));
+});
+
+// Start quiz attempt
+export const startQuizAttempt = asyncHandler(async (req, res) => {
+  const { quizId } = req.params;
+  const { _id: studentId } = req.user;
+
+  if (!quizId) {
+    throw new ApiError(400, "Quiz ID is required.");
+  }
+
+  const quiz = await Quiz.findOne({ _id: quizId, isPublished: true });
+  if (!quiz) {
+    throw new ApiError(404, "Quiz not found or not published.");
+  }
+
+  // Check if student is enrolled
+  const enrollment = await Enrollment.findOne({
+    courseId: quiz.courseId,
+    userId: studentId,
+  });
+  if (!enrollment) {
+    throw new ApiError(403, "You are not enrolled in this course.");
+  }
+
+  // Check if there's already an ongoing attempt
+  const ongoingAttempt = await QuizAttempt.findOne({
+    quizId,
+    studentId,
+    isCompleted: false,
+  });
+
+  if (ongoingAttempt) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          ongoingAttempt,
+          "Quiz attempt already in progress."
+        )
+      );
+  }
+
+  // Check attempt limit
+  const completedAttempts = await QuizAttempt.find({
+    quizId,
+    studentId,
+    isCompleted: true,
+  });
+
+  if (completedAttempts.length >= quiz.attempts) {
+    throw new ApiError(400, "Maximum attempts reached.");
+  }
+
+  // Calculate max points
+  const maxPoints = quiz.questions.reduce(
+    (total, question) => total + question.points,
+    0
+  );
+
+  // Create new attempt
+  const newAttempt = new QuizAttempt({
+    quizId,
+    studentId,
+    courseId: quiz.courseId,
+    startTime: new Date(),
+    attemptNumber: completedAttempts.length + 1,
+    maxPoints,
+    answers: [],
+  });
+
+  const savedAttempt = await newAttempt.save();
+
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(201, savedAttempt, "Quiz attempt started successfully.")
+    );
+});
+
+// Submit quiz answer
+export const submitQuizAnswer = asyncHandler(async (req, res) => {
+  const { attemptId } = req.params;
+  const { questionId, selectedOption, timeSpent } = req.body;
+  const { _id: studentId } = req.user;
+
+  if (!attemptId || !questionId || selectedOption === undefined) {
+    throw new ApiError(
+      400,
+      "Attempt ID, Question ID, and selected option are required."
+    );
+  }
+
+  const attempt = await QuizAttempt.findOne({
+    _id: attemptId,
+    studentId,
+    isCompleted: false,
+  });
+
+  if (!attempt) {
+    throw new ApiError(404, "Quiz attempt not found or already completed.");
+  }
+
+  const quiz = await Quiz.findById(attempt.quizId);
+  if (!quiz) {
+    throw new ApiError(404, "Quiz not found.");
+  }
+
+  const question = quiz.questions.id(questionId);
+  if (!question) {
+    throw new ApiError(404, "Question not found.");
+  }
+
+  // Check if answer already exists
+  const existingAnswerIndex = attempt.answers.findIndex(
+    (answer) => answer.questionId.toString() === questionId
+  );
+
+  const isCorrect = question.options[selectedOption]?.isCorrect || false;
+  const pointsEarned = isCorrect ? question.points : 0;
+
+  const answerData = {
+    questionId,
+    selectedOption,
+    isCorrect,
+    pointsEarned,
+    timeSpent: timeSpent || 0,
+  };
+
+  if (existingAnswerIndex >= 0) {
+    // Update existing answer
+    attempt.answers[existingAnswerIndex] = answerData;
+  } else {
+    // Add new answer
+    attempt.answers.push(answerData);
+  }
+
+  await attempt.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, attempt, "Answer submitted successfully."));
+});
+
+// Submit complete quiz
+export const submitQuiz = asyncHandler(async (req, res) => {
+  const { attemptId } = req.params;
+  const { answers } = req.body;
+  const { _id: studentId } = req.user;
+
+  if (!attemptId) {
+    throw new ApiError(400, "Attempt ID is required.");
+  }
+
+  const attempt = await QuizAttempt.findOne({
+    _id: attemptId,
+    studentId,
+    isCompleted: false,
+  });
+
+  if (!attempt) {
+    throw new ApiError(404, "Quiz attempt not found or already completed.");
+  }
+
+  const quiz = await Quiz.findById(attempt.quizId);
+  if (!quiz) {
+    throw new ApiError(404, "Quiz not found.");
+  }
+
+  // Process all answers if provided
+  if (answers && Array.isArray(answers)) {
+    for (const answer of answers) {
+      const question = quiz.questions.id(answer.questionId);
+      if (question) {
+        const existingAnswerIndex = attempt.answers.findIndex(
+          (a) => a.questionId.toString() === answer.questionId
+        );
+
+        const isCorrect =
+          question.options[answer.selectedOption]?.isCorrect || false;
+        const pointsEarned = isCorrect ? question.points : 0;
+
+        const answerData = {
+          questionId: answer.questionId,
+          selectedOption: answer.selectedOption,
+          isCorrect,
+          pointsEarned,
+          timeSpent: answer.timeSpent || 0,
+        };
+
+        if (existingAnswerIndex >= 0) {
+          attempt.answers[existingAnswerIndex] = answerData;
+        } else {
+          attempt.answers.push(answerData);
+        }
+      }
+    }
+  }
+
+  // Complete the attempt
+  attempt.endTime = new Date();
+  attempt.isCompleted = true;
+  attempt.totalTimeSpent = Math.floor(
+    (attempt.endTime - attempt.startTime) / 1000
+  );
+
+  // Calculate total points and percentage
+  attempt.totalPoints = attempt.answers.reduce(
+    (total, answer) => total + answer.pointsEarned,
+    0
+  );
+  attempt.percentage =
+    attempt.maxPoints > 0 ? (attempt.totalPoints / attempt.maxPoints) * 100 : 0;
+  attempt.isPassed = attempt.percentage >= quiz.passingScore;
+
+  await attempt.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, attempt, "Quiz submitted successfully."));
+});
+
+// Get student's quiz attempts
+export const getStudentQuizAttempts = asyncHandler(async (req, res) => {
+  const { quizId } = req.params;
+  const { _id: studentId } = req.user;
+
+  if (!quizId) {
+    throw new ApiError(400, "Quiz ID is required.");
+  }
+
+  const quiz = await Quiz.findById(quizId).populate("courseId", "title");
+  if (!quiz) {
+    throw new ApiError(404, "Quiz not found.");
+  }
+
+  // Check if student is enrolled
+  const enrollment = await Enrollment.findOne({
+    courseId: quiz.courseId._id,
+    userId: studentId,
+  });
+  if (!enrollment) {
+    throw new ApiError(403, "You are not enrolled in this course.");
+  }
+
+  const attempts = await QuizAttempt.find({ quizId, studentId }).sort({
+    createdAt: -1,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        attempts,
+        "Student quiz attempts retrieved successfully."
+      )
+    );
+});
+
+// Get detailed quiz results
+export const getQuizResults = asyncHandler(async (req, res) => {
+  const { attemptId } = req.params;
+  const { _id: studentId } = req.user;
+
+  if (!attemptId) {
+    throw new ApiError(400, "Attempt ID is required.");
+  }
+
+  const attempt = await QuizAttempt.findOne({ _id: attemptId, studentId });
+  if (!attempt) {
+    throw new ApiError(404, "Quiz attempt not found.");
+  }
+
+  const quiz = await Quiz.findById(attempt.quizId).populate(
+    "courseId",
+    "title"
+  );
+  if (!quiz) {
+    throw new ApiError(404, "Quiz not found.");
+  }
+
+  // Check if results should be shown
+  if (!quiz.showResults) {
+    throw new ApiError(403, "Results are not available for this quiz.");
+  }
+
+  // Prepare detailed results
+  const results = {
+    attempt,
+    quiz: {
+      title: quiz.title,
+      description: quiz.description,
+      course: quiz.courseId,
+      passingScore: quiz.passingScore,
+      totalQuestions: quiz.questions.length,
+      showResults: quiz.showResults,
+    },
+    detailedAnswers: [],
+  };
+
+  // Add question details with answers
+  attempt.answers.forEach((answer) => {
+    const question = quiz.questions.id(answer.questionId);
+    if (question) {
+      results.detailedAnswers.push({
+        question: question.question,
+        options: question.options,
+        selectedOption: answer.selectedOption,
+        correctOptions: question.options.map((opt, idx) => ({
+          index: idx,
+          isCorrect: opt.isCorrect,
+        })),
+        isCorrect: answer.isCorrect,
+        pointsEarned: answer.pointsEarned,
+        maxPoints: question.points,
+        explanation: question.explanation,
+        timeSpent: answer.timeSpent,
+      });
+    }
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, results, "Quiz results retrieved successfully.")
+    );
+});
+
+// Helper function to shuffle array
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}

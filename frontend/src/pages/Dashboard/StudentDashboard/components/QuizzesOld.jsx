@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from "react";
 import {
   Row,
   Col,
@@ -9,12 +8,9 @@ import {
   Space,
   Input,
   Select,
+  List,
   Progress,
   Statistic,
-  Modal,
-  message,
-  Spin,
-  Empty,
 } from "antd";
 import {
   QuestionCircleOutlined,
@@ -23,15 +19,11 @@ import {
   TrophyOutlined,
   SearchOutlined,
   FilterOutlined,
-  EyeOutlined,
   PlayCircleOutlined,
+  EyeOutlined,
   CalendarOutlined,
-  BookOutlined,
 } from "@ant-design/icons";
-import { API_ENDPOINTS } from "../../../../config/api";
-import axios from "axios";
-import QuizTaker from "./QuizTaker";
-import QuizResults from "./QuizResults";
+import { useState } from "react";
 
 const { Title, Text, Paragraph } = Typography;
 const { Search } = Input;
@@ -40,143 +32,91 @@ const { Option } = Select;
 function Quizzes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [quizzes, setQuizzes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [currentView, setCurrentView] = useState("list"); // list, taking, results
-  const [selectedQuiz, setSelectedQuiz] = useState(null);
-  const [selectedAttemptId, setSelectedAttemptId] = useState(null);
 
-  // Fetch enrolled courses
-  useEffect(() => {
-    fetchEnrolledCourses();
-  }, []);
-
-  // Fetch quizzes when course is selected
-  useEffect(() => {
-    if (selectedCourse) {
-      fetchQuizzes(selectedCourse._id);
-    }
-  }, [selectedCourse]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const fetchEnrolledCourses = async () => {
-    try {
-      const response = await axios.get(API_ENDPOINTS.ENROLLED_COURSES);
-      if (response.data.success) {
-        setEnrolledCourses(response.data.data);
-        if (response.data.data.length > 0) {
-          setSelectedCourse(response.data.data[0].courseId);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching enrolled courses:", error);
-      message.error("Failed to fetch enrolled courses");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchQuizzes = async (courseId) => {
-    try {
-      setLoading(true);
-      const response = await axios.get(API_ENDPOINTS.STUDENT_QUIZZES(courseId));
-      if (response.data.success) {
-        const processedQuizzes = response.data.data.map((quiz) => ({
-          ...quiz,
-          id: quiz._id,
-          course: selectedCourse?.title || "Course",
-          questions: quiz.questions.length,
-          timeLimit: quiz.duration,
-          attempts: quiz.studentAttempts,
-          maxAttempts: quiz.attempts,
-          studentAttempts: quiz.studentAttempts, // Keep original for logic
-          score: quiz.bestScore,
-          maxScore: 100,
-          dueDate: quiz.dueDate
-            ? new Date(quiz.dueDate).toLocaleDateString()
-            : "No due date",
-          lastAttempt: quiz.lastAttempt
-            ? new Date(quiz.lastAttempt.createdAt).toLocaleDateString()
-            : null,
-          difficulty: "Intermediate", // You can add this to your quiz model if needed
-          topics: quiz.questions
-            .map((q) => q.question.substring(0, 20) + "...")
-            .slice(0, 3),
-          status: getQuizStatus(quiz),
-        }));
-        setQuizzes(processedQuizzes);
-      }
-    } catch (error) {
-      console.error("Error fetching quizzes:", error);
-      message.error("Failed to fetch quizzes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getQuizStatus = (quiz) => {
-    if (!quiz.canTakeQuiz && quiz.studentAttempts >= quiz.attempts) {
-      return "completed";
-    }
-    if (!quiz.isAvailable) {
-      if (quiz.availabilityStatus === "not_yet_available") {
-        return "locked";
-      }
-      if (quiz.availabilityStatus === "expired") {
-        return "overdue";
-      }
-    }
-    if (quiz.availabilityStatus === "overdue") {
-      return "overdue";
-    }
-    return "available";
-  };
-
-  const handleStartQuiz = async (quiz) => {
-    setSelectedQuiz(quiz);
-    setCurrentView("taking");
-  };
-
-  const handleViewResults = async (quiz) => {
-    try {
-      const response = await axios.get(
-        API_ENDPOINTS.STUDENT_QUIZ_ATTEMPTS(quiz._id)
-      );
-      if (response.data.success && response.data.data.length > 0) {
-        const latestAttempt = response.data.data[0];
-        setSelectedAttemptId(latestAttempt._id);
-        setCurrentView("results");
-      }
-    } catch (error) {
-      console.error("Error fetching results:", error);
-      message.error("Failed to fetch quiz results");
-    }
-  };
-
-  const handleQuizComplete = (attempt) => {
-    setSelectedAttemptId(attempt._id);
-    setCurrentView("results");
-    // Refresh quizzes to update status
-    if (selectedCourse) {
-      fetchQuizzes(selectedCourse._id);
-    }
-  };
-
-  const handleBackToList = () => {
-    setCurrentView("list");
-    setSelectedQuiz(null);
-    setSelectedAttemptId(null);
-    // Refresh quizzes when coming back
-    if (selectedCourse) {
-      fetchQuizzes(selectedCourse._id);
-    }
-  };
-
-  const handleRetakeQuiz = () => {
-    setCurrentView("taking");
-    setSelectedAttemptId(null);
-  };
+  // Mock data - replace with actual data from API
+  const quizzes = [
+    {
+      id: 1,
+      title: "JavaScript Fundamentals Quiz",
+      course: "Complete Web Development Bootcamp",
+      questions: 15,
+      timeLimit: 30,
+      attempts: 2,
+      maxAttempts: 3,
+      status: "completed",
+      score: 95,
+      maxScore: 100,
+      dueDate: "2025-06-20",
+      lastAttempt: "2025-06-14",
+      difficulty: "Intermediate",
+      topics: ["Variables", "Functions", "Arrays", "Objects"],
+    },
+    {
+      id: 2,
+      title: "React Hooks Assessment",
+      course: "Advanced React Development",
+      questions: 20,
+      timeLimit: 45,
+      attempts: 1,
+      maxAttempts: 2,
+      status: "completed",
+      score: 88,
+      maxScore: 100,
+      dueDate: "2025-06-22",
+      lastAttempt: "2025-06-13",
+      difficulty: "Advanced",
+      topics: ["useState", "useEffect", "useContext", "Custom Hooks"],
+    },
+    {
+      id: 3,
+      title: "Database Normalization Quiz",
+      course: "Database Design Fundamentals",
+      questions: 12,
+      timeLimit: 25,
+      attempts: 0,
+      maxAttempts: 3,
+      status: "available",
+      score: null,
+      maxScore: 100,
+      dueDate: "2025-06-18",
+      lastAttempt: null,
+      difficulty: "Intermediate",
+      topics: ["1NF", "2NF", "3NF", "BCNF"],
+    },
+    {
+      id: 4,
+      title: "Final Assessment: Web Development",
+      course: "Complete Web Development Bootcamp",
+      questions: 50,
+      timeLimit: 120,
+      attempts: 0,
+      maxAttempts: 1,
+      status: "locked",
+      score: null,
+      maxScore: 100,
+      dueDate: "2025-06-25",
+      lastAttempt: null,
+      difficulty: "Advanced",
+      topics: ["HTML/CSS", "JavaScript", "React", "Node.js", "Database"],
+      prerequisite: "Complete all course modules",
+    },
+    {
+      id: 5,
+      title: "UI/UX Principles Quiz",
+      course: "UI/UX Design Principles",
+      questions: 18,
+      timeLimit: 35,
+      attempts: 2,
+      maxAttempts: 2,
+      status: "completed",
+      score: 92,
+      maxScore: 100,
+      dueDate: "2025-03-15",
+      lastAttempt: "2025-03-14",
+      difficulty: "Beginner",
+      topics: ["Design Theory", "Color Theory", "Typography", "User Research"],
+    },
+  ];
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -240,54 +180,10 @@ function Quizzes() {
   const averageScore =
     completedQuizzes.length > 0
       ? Math.round(
-          completedQuizzes.reduce((sum, q) => sum + (q.score || 0), 0) /
+          completedQuizzes.reduce((sum, q) => sum + q.score, 0) /
             completedQuizzes.length
         )
       : 0;
-
-  if (currentView === "taking" && selectedQuiz) {
-    return (
-      <QuizTaker
-        quizId={selectedQuiz._id}
-        onComplete={handleQuizComplete}
-        onBack={handleBackToList}
-      />
-    );
-  }
-
-  if (currentView === "results" && selectedAttemptId) {
-    return (
-      <QuizResults
-        attemptId={selectedAttemptId}
-        onBack={handleBackToList}
-        onRetake={
-          selectedQuiz?.attempts > selectedQuiz?.studentAttempts
-            ? handleRetakeQuiz
-            : null
-        }
-      />
-    );
-  }
-
-  if (loading) {
-    return (
-      <div style={{ padding: "24px", textAlign: "center" }}>
-        <Spin size="large" />
-        <div style={{ marginTop: "16px" }}>Loading quizzes...</div>
-      </div>
-    );
-  }
-
-  if (enrolledCourses.length === 0) {
-    return (
-      <div style={{ padding: "24px" }}>
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="You are not enrolled in any courses yet"
-        />
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: "24px" }}>
@@ -297,38 +193,6 @@ function Quizzes() {
           Test your knowledge and track your learning progress
         </Paragraph>
       </div>
-
-      {/* Course Selection */}
-      <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
-        <Col xs={24}>
-          <Card>
-            <Space>
-              <BookOutlined />
-              <Text strong>Select Course:</Text>
-              <Select
-                style={{ minWidth: "200px" }}
-                value={selectedCourse?._id}
-                onChange={(value) => {
-                  const course = enrolledCourses.find(
-                    (c) => c.courseId._id === value
-                  );
-                  setSelectedCourse(course?.courseId);
-                }}
-                placeholder="Select a course"
-              >
-                {enrolledCourses.map((enrollment) => (
-                  <Option
-                    key={enrollment.courseId._id}
-                    value={enrollment.courseId._id}
-                  >
-                    {enrollment.courseId.title}
-                  </Option>
-                ))}
-              </Select>
-            </Space>
-          </Card>
-        </Col>
-      </Row>
 
       {/* Quiz Statistics */}
       <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
@@ -412,29 +276,16 @@ function Quizzes() {
               actions={
                 quiz.status === "completed"
                   ? [
-                      <Button
-                        icon={<EyeOutlined />}
-                        onClick={() => handleViewResults(quiz)}
-                      >
-                        View Results
-                      </Button>,
+                      <Button icon={<EyeOutlined />}>View Results</Button>,
                       quiz.attempts < quiz.maxAttempts && (
-                        <Button
-                          type="primary"
-                          icon={<PlayCircleOutlined />}
-                          onClick={() => handleStartQuiz(quiz)}
-                        >
+                        <Button type="primary" icon={<PlayCircleOutlined />}>
                           Retake Quiz
                         </Button>
                       ),
                     ].filter(Boolean)
                   : quiz.status === "available"
                   ? [
-                      <Button
-                        type="primary"
-                        icon={<PlayCircleOutlined />}
-                        onClick={() => handleStartQuiz(quiz)}
-                      >
+                      <Button type="primary" icon={<PlayCircleOutlined />}>
                         Start Quiz
                       </Button>,
                     ]
@@ -503,7 +354,7 @@ function Quizzes() {
                   </Space>
                 </div>
 
-                {quiz.status === "completed" && quiz.score !== null && (
+                {quiz.status === "completed" && (
                   <div style={{ marginBottom: "16px" }}>
                     <div
                       style={{
@@ -514,22 +365,29 @@ function Quizzes() {
                     >
                       <Text>Best Score:</Text>
                       <Text strong style={{ color: getScoreColor(quiz.score) }}>
-                        {quiz.score.toFixed(1)}%
+                        {quiz.score}/{quiz.maxScore} (
+                        {Math.round((quiz.score / quiz.maxScore) * 100)}%)
                       </Text>
                     </div>
                     <Progress
-                      percent={Math.round(quiz.score)}
+                      percent={Math.round((quiz.score / quiz.maxScore) * 100)}
                       strokeColor={getScoreColor(quiz.score)}
                     />
                   </div>
                 )}
 
-                <div style={{ marginTop: "auto" }}>
-                  {quiz.description && (
-                    <Text type="secondary" style={{ fontSize: "12px" }}>
-                      {quiz.description}
+                {quiz.status === "locked" && quiz.prerequisite && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <Text type="secondary" style={{ fontStyle: "italic" }}>
+                      Prerequisite: {quiz.prerequisite}
                     </Text>
-                  )}
+                  </div>
+                )}
+
+                <div style={{ marginTop: "auto" }}>
+                  <Text type="secondary" style={{ fontSize: "12px" }}>
+                    Topics: {quiz.topics.join(", ")}
+                  </Text>
                   {quiz.lastAttempt && (
                     <div style={{ marginTop: "4px" }}>
                       <Text type="secondary" style={{ fontSize: "12px" }}>
@@ -555,9 +413,7 @@ function Quizzes() {
           <Paragraph type="secondary">
             {searchTerm || filterStatus !== "all"
               ? "Try adjusting your search or filter criteria"
-              : selectedCourse
-              ? "No quizzes are available for this course"
-              : "Select a course to view available quizzes"}
+              : "No quizzes are available at this time"}
           </Paragraph>
         </div>
       )}

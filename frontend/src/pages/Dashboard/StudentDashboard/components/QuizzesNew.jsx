@@ -65,6 +65,7 @@ function Quizzes() {
       const response = await axios.get(API_ENDPOINTS.ENROLLED_COURSES);
       if (response.data.success) {
         setEnrolledCourses(response.data.data);
+        console.log("Enrolled courses:", response.data.data);
         if (response.data.data.length > 0) {
           setSelectedCourse(response.data.data[0].courseId);
         }
@@ -90,7 +91,6 @@ function Quizzes() {
           timeLimit: quiz.duration,
           attempts: quiz.studentAttempts,
           maxAttempts: quiz.attempts,
-          studentAttempts: quiz.studentAttempts, // Keep original for logic
           score: quiz.bestScore,
           maxScore: 100,
           dueDate: quiz.dueDate
@@ -245,30 +245,6 @@ function Quizzes() {
         )
       : 0;
 
-  if (currentView === "taking" && selectedQuiz) {
-    return (
-      <QuizTaker
-        quizId={selectedQuiz._id}
-        onComplete={handleQuizComplete}
-        onBack={handleBackToList}
-      />
-    );
-  }
-
-  if (currentView === "results" && selectedAttemptId) {
-    return (
-      <QuizResults
-        attemptId={selectedAttemptId}
-        onBack={handleBackToList}
-        onRetake={
-          selectedQuiz?.attempts > selectedQuiz?.studentAttempts
-            ? handleRetakeQuiz
-            : null
-        }
-      />
-    );
-  }
-
   if (loading) {
     return (
       <div style={{ padding: "24px", textAlign: "center" }}>
@@ -286,6 +262,27 @@ function Quizzes() {
           description="You are not enrolled in any courses yet"
         />
       </div>
+    );
+  }
+
+  // Render different views based on currentView state
+  if (currentView === "taking" && selectedQuiz) {
+    return (
+      <QuizTaker
+        quizId={selectedQuiz._id}
+        onComplete={handleQuizComplete}
+        onBack={handleBackToList}
+      />
+    );
+  }
+
+  if (currentView === "results" && selectedAttemptId) {
+    return (
+      <QuizResults
+        attemptId={selectedAttemptId}
+        onBack={handleBackToList}
+        onRetake={handleRetakeQuiz}
+      />
     );
   }
 

@@ -63,6 +63,21 @@ export const API_ENDPOINTS = {
   TOGGLE_QUIZ_PUBLISH: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/publish`,
   QUIZ_ATTEMPTS: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/attempts`,
   QUIZ_STATS: (quizId) => `${API_BASE_URL}/api/quiz/${quizId}/stats`,
+
+  // Student Quiz endpoints
+  STUDENT_QUIZZES: (courseId) =>
+    `${API_BASE_URL}/api/student/course/${courseId}/quizzes`,
+  STUDENT_QUIZ: (quizId) => `${API_BASE_URL}/api/student/quiz/${quizId}`,
+  START_QUIZ_ATTEMPT: (quizId) =>
+    `${API_BASE_URL}/api/student/quiz/${quizId}/start`,
+  SUBMIT_QUIZ_ANSWER: (attemptId) =>
+    `${API_BASE_URL}/api/student/attempt/${attemptId}/answer`,
+  SUBMIT_QUIZ: (attemptId) =>
+    `${API_BASE_URL}/api/student/attempt/${attemptId}/submit`,
+  STUDENT_QUIZ_ATTEMPTS: (quizId) =>
+    `${API_BASE_URL}/api/student/quiz/${quizId}/attempts`,
+  QUIZ_RESULTS: (attemptId) =>
+    `${API_BASE_URL}/api/student/attempt/${attemptId}/results`,
 };
 
 export default API_BASE_URL;

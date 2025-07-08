@@ -3,54 +3,50 @@ import Course from "../models/Course.model.js";
 import User from "../models/User.model.js";
 import LectureCompletion from "../models/LectureCompletion.model.js";
 import Lecture from "../models/Lecture.model.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Enroll a student in a course
-export const enrollInCourse = async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const userId = req.user._id;
+export const enrollInCourse = asyncHandler(async (req, res) => {
+  const { courseId } = req.params;
+  const userId = req.user._id;
 
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.role !== "student") {
-      return res
-        .status(403)
-        .json({ message: "Only students can enroll in courses" });
-    }
-
-    // Check if already enrolled
-    const existingEnrollment = await Enrollment.findOne({ userId, courseId });
-    if (existingEnrollment) {
-      return res
-        .status(400)
-        .json({ message: "Already enrolled in this course" });
-    }
-
-    // Create enrollment
-    const enrollment = new Enrollment({ userId, courseId });
-    await enrollment.save();
-
-    await Course.findByIdAndUpdate(courseId, {
-      $inc: { enrolledStudents: 1 },
-    });
-
-    res.status(201).json({
-      message: "Successfully enrolled in course",
-      enrollment,
-    });
-  } catch (error) {
-    console.error("Error enrolling in course:", error);
-    res.status(500).json({ message: "Server error" });
+  const course = await Course.findById(courseId);
+  if (!course) {
+    return res.status(404).json(new ApiResponse(404, null, "Course not found"));
   }
-};
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json(new ApiResponse(404, null, "User not found"));
+  }
+
+  if (user.role !== "student") {
+    return res
+      .status(403)
+      .json(new ApiResponse(403, null, "Only students can enroll in courses"));
+  }
+
+  // Check if already enrolled
+  const existingEnrollment = await Enrollment.findOne({ userId, courseId });
+  if (existingEnrollment) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Already enrolled in this course"));
+  }
+
+  // Create enrollment
+  const enrollment = new Enrollment({ userId, courseId });
+  await enrollment.save();
+
+  await Course.findByIdAndUpdate(courseId, {
+    $inc: { enrolledStudents: 1 },
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, enrollment, "Successfully enrolled in course"));
+});
 
 // Unenroll a student from a course
 export const unenrollFromCourse = async (req, res) => {
@@ -77,59 +73,62 @@ export const unenrollFromCourse = async (req, res) => {
 };
 
 // Get all enrollments for a user
-export const getUserEnrollments = async (req, res) => {
-  try {
-    console.log(req.user);
-    const userId = req.user._id;
-    console.log("here is the userId:", userId);
-    const enrollments = await Enrollment.find({ userId })
-      .populate({
-        path: "courseId",
-        select: "title description thumbnail price userId",
-        populate: {
-          path: "userId",
-          select: "fullname name email",
+export const getUserEnrollments = asyncHandler(async (req, res) => {
+  console.log(req.user);
+  const userId = req.user._id;
+  console.log("here is the userId:", userId);
+  const enrollments = await Enrollment.find({ userId })
+    .populate({
+      path: "courseId",
+      select: "title description thumbnail price userId",
+      populate: {
+        path: "userId",
+        select: "fullname name email",
+      },
+    })
+    .sort({ enrolledAt: -1 });
+
+  // Add progress information for each enrollment
+  const enrollmentsWithProgress = await Promise.all(
+    enrollments.map(async (enrollment) => {
+      const courseId = enrollment.courseId._id;
+
+      // Get total lectures in course
+      const totalLectures = await Lecture.countDocuments({ courseId });
+
+      // Get completed lectures count
+      const completedLecturesCount = await LectureCompletion.countDocuments({
+        userId,
+        courseId,
+      });
+
+      // Calculate progress percentage
+      const progressPercentage =
+        totalLectures > 0
+          ? Math.round((completedLecturesCount / totalLectures) * 100)
+          : 0;
+
+      return {
+        ...enrollment.toObject(),
+        progressDetails: {
+          totalLectures,
+          completedLectures: completedLecturesCount,
+          progressPercentage,
         },
-      })
-      .sort({ enrolledAt: -1 });
+      };
+    })
+  );
 
-    // Add progress information for each enrollment
-    const enrollmentsWithProgress = await Promise.all(
-      enrollments.map(async (enrollment) => {
-        const courseId = enrollment.courseId._id;
-
-        // Get total lectures in course
-        const totalLectures = await Lecture.countDocuments({ courseId });
-
-        // Get completed lectures count
-        const completedLecturesCount = await LectureCompletion.countDocuments({
-          userId,
-          courseId,
-        });
-
-        // Calculate progress percentage
-        const progressPercentage =
-          totalLectures > 0
-            ? Math.round((completedLecturesCount / totalLectures) * 100)
-            : 0;
-
-        return {
-          ...enrollment.toObject(),
-          progressDetails: {
-            totalLectures,
-            completedLectures: completedLecturesCount,
-            progressPercentage,
-          },
-        };
-      })
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        enrollmentsWithProgress,
+        "User enrollments fetched successfully"
+      )
     );
-
-    res.status(200).json({ enrollments: enrollmentsWithProgress });
-  } catch (error) {
-    console.error("Error fetching user enrollments:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+});
 
 // Get all students enrolled in a course (for instructors)
 export const getCourseEnrollments = async (req, res) => {

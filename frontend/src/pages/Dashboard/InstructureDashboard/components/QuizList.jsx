@@ -1,25 +1,20 @@
 import React, { useState } from "react";
 import { API_ENDPOINTS } from "../../../../config/api";
+import axios from "axios";
 
 function QuizList({ quizzes, onEdit, onDelete, onViewStats }) {
   const [loadingQuizId, setLoadingQuizId] = useState(null);
 
+  console.log("QuizList component rendered", quizzes);
+
   const handlePublishToggle = async (quiz) => {
     try {
       setLoadingQuizId(quiz._id);
-      const response = await fetch(
-        API_ENDPOINTS.TOGGLE_QUIZ_PUBLISH(quiz._id),
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "application/json",
-          },
-        }
+      const response = await axios.put(
+        API_ENDPOINTS.TOGGLE_QUIZ_PUBLISH(quiz._id)
       );
 
-      const data = await response.json();
-      if (data.success) {
+      if (response.data.success) {
         // showMessage(
         //   `Quiz ${quiz.isPublished ? "unpublished" : "published"} successfully`,
         //   "success"
@@ -50,15 +45,9 @@ function QuizList({ quizzes, onEdit, onDelete, onViewStats }) {
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.DELETE_QUIZ(quizId), {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const response = await axios.delete(API_ENDPOINTS.DELETE_QUIZ(quizId));
 
-      const data = await response.json();
-      if (data.success) {
+      if (response.data.success) {
         onDelete(quizId);
       } else {
         // showMessage(data.message || "Error deleting quiz", "error");

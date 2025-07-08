@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { API_ENDPOINTS } from "../../../../config/api";
 // import { useGlobalMessage } from "../../../../context/GlobalMessageProvider";
 import Loading from "../../../../generalComponents/Loading";
+import axios from "axios";
 
 function QuizStats({ quiz, onBack }) {
   const [stats, setStats] = useState(null);
@@ -29,14 +30,9 @@ function QuizStats({ quiz, onBack }) {
 
   const fetchAttempts = useCallback(async () => {
     try {
-      const response = await fetch(API_ENDPOINTS.QUIZ_ATTEMPTS(quiz._id), {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      const data = await response.json();
-      if (data.success) {
-        setAttempts(data.data);
+      const response = await axios.get(API_ENDPOINTS.QUIZ_ATTEMPTS(quiz._id));
+      if (response.data.success) {
+        setAttempts(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching quiz attempts:", error);

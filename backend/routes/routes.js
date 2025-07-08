@@ -49,6 +49,14 @@ import {
   toggleQuizPublish,
   getQuizAttempts,
   getQuizStats,
+  // Student quiz functions
+  getStudentQuizzes,
+  getStudentQuiz,
+  startQuizAttempt,
+  submitQuizAnswer,
+  submitQuiz,
+  getStudentQuizAttempts,
+  getQuizResults,
 } from "../controllers/quiz.controller.js";
 import { thumbnailUpload } from "../utils/upload.js";
 
@@ -219,6 +227,45 @@ router.get(
   getQuizAttempts
 );
 router.get("/quiz/:quizId/stats", verifyJWT, requireInstructor, getQuizStats);
+
+// Student Quiz routes
+router.get(
+  "/student/course/:courseId/quizzes",
+  verifyJWT,
+  requireStudent,
+  getStudentQuizzes
+);
+router.get("/student/quiz/:quizId", verifyJWT, requireStudent, getStudentQuiz);
+router.post(
+  "/student/quiz/:quizId/start",
+  verifyJWT,
+  requireStudent,
+  startQuizAttempt
+);
+router.put(
+  "/student/attempt/:attemptId/answer",
+  verifyJWT,
+  requireStudent,
+  submitQuizAnswer
+);
+router.post(
+  "/student/attempt/:attemptId/submit",
+  verifyJWT,
+  requireStudent,
+  submitQuiz
+);
+router.get(
+  "/student/quiz/:quizId/attempts",
+  verifyJWT,
+  requireStudent,
+  getStudentQuizAttempts
+);
+router.get(
+  "/student/attempt/:attemptId/results",
+  verifyJWT,
+  requireStudent,
+  getQuizResults
+);
 
 router.get("/profile", verifyJWT, (req, res) => {
   const userResponse = {

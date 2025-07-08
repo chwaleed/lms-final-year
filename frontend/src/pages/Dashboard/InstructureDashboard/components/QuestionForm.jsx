@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { API_ENDPOINTS } from "../../../../config/api";
+import axios from "axios";
 // import { useGlobalMessage } from "../../../../context/GlobalMessageProvider";
 
 function QuestionForm({ quiz, question, onSubmit, onCancel }) {
@@ -97,6 +98,7 @@ function QuestionForm({ quiz, question, onSubmit, onCancel }) {
       return;
     }
 
+    console.log("here is the data");
     const hasCorrectAnswer = validOptions.some((option) => option.isCorrect);
     if (!hasCorrectAnswer) {
       // showMessage("Please select the correct answer", "error");
@@ -116,24 +118,42 @@ function QuestionForm({ quiz, question, onSubmit, onCancel }) {
 
       const method = question ? "PUT" : "POST";
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          ...formData,
-          options: validOptions,
-          points: parseInt(formData.points),
-        }),
-      });
+      let response;
 
-      const data = await response.json();
-      if (data.success) {
-        onSubmit(data.data);
+      const payload = {
+        ...formData,
+        options: validOptions,
+        points: parseInt(formData.points),
+      };
+
+      if (method === "PUT") {
+        response = await axios.put(url, payload);
       } else {
-        // showMessage(data.message || "Error saving question", "error");
+        response = await axios.post(url, payload);
+      }
+
+      if (response.data.success) {
+        // Reset form data for new questions
+        if (!question) {
+          setFormData({
+            question: "",
+            options: [
+              { text: "", isCorrect: false },
+              { text: "", isCorrect: false },
+              { text: "", isCorrect: false },
+              { text: "", isCorrect: false },
+            ],
+            explanation: "",
+            points: 1,
+          });
+        }
+
+        onSubmit(response.data.data);
+
+        // Hide the form after successful submission
+        onCancel();
+      } else {
+        // showMessage(response.data.message || "Error saving question", "error");
       }
     } catch (error) {
       console.error("Error saving question:", error);

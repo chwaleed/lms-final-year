@@ -20,10 +20,10 @@ function Quizzes() {
   const fetchCourses = useCallback(async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.COURSES_PAGINATED);
-      if (response.success) {
-        setCourses(response.data.courses);
-        if (response.data.courses.length > 0) {
-          setSelectedCourse(response.data.courses[0]);
+      if (response.data.success) {
+        setCourses(response.data.data.courses);
+        if (response.data.data.courses.length > 0) {
+          setSelectedCourse(response.data.data.courses[0]);
         }
       }
     } catch (error) {
@@ -40,8 +40,8 @@ function Quizzes() {
       const response = await axios.get(
         API_ENDPOINTS.QUIZZES_BY_COURSE(courseId)
       );
-      if (response.success) {
-        setQuizzes(response.data);
+      if (response.data.success) {
+        setQuizzes(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching quizzes:", error);

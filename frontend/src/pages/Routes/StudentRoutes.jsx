@@ -1,7 +1,7 @@
 import { Route } from "react-router";
 
 import StudentDashboardLayout from "../Dashboard/StudentDashboard/StudentDashboardLayout";
-import Quizzes from "../Dashboard/StudentDashboard/components/Quizzes";
+import Quizzes from "../Dashboard/StudentDashboard/components/QuizzesNew";
 import Overview from "../Dashboard/StudentDashboard/components/Overview";
 import Courses from "../Dashboard/StudentDashboard/components/Courses";
 import ExploreCourses from "../Dashboard/StudentDashboard/components/ExploreCourses";
@@ -16,7 +16,7 @@ const StudentRoutes = [
     <Route path="dashboard" element={<Overview />} />
     <Route path="courses" element={<Courses />} />
     <Route path="explore-courses" element={<ExploreCourses />} />
-    {/* <Route path="quizzes" element={<Quizzes />} /> */}
+    <Route path="quizzes" element={<Quizzes />} />
     {/* <Route path="assignments" element={<Assignments />} /> */}
     {/* <Route path="grades" element={<Grades />} /> */}
     <Route path="course-learn/:courseId" element={<CourseLearn />} />

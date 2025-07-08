@@ -45,7 +45,7 @@ function Courses() {
       );
 
       if (response?.data) {
-        setEnrolledCourses(response.data.enrollments);
+        setEnrolledCourses(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching enrolled courses:", error);
@@ -63,7 +63,7 @@ function Courses() {
     }
     return `$${price}`;
   };
-  const filteredCourses = enrolledCourses.filter((enrollment) => {
+  const filteredCourses = enrolledCourses?.filter((enrollment) => {
     const matchesSearch = enrollment.courseId.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -161,7 +161,7 @@ function Courses() {
       </Row>{" "}
       {/* Course Cards */}
       <Row gutter={[16, 16]}>
-        {filteredCourses.map((enrollment) => (
+        {filteredCourses?.map((enrollment) => (
           <Col xs={24} sm={12} lg={8} xl={6} key={enrollment._id}>
             <Card
               hoverable

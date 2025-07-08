@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { API_ENDPOINTS } from "../../../../config/api";
+import axios from "axios";
 // import { useGlobalMessage } from "../../../../context/GlobalMessageProvider";
 
 function QuizForm({ course, onSubmit, onCancel }) {
@@ -52,24 +53,16 @@ function QuizForm({ course, onSubmit, onCancel }) {
 
     try {
       setLoading(true);
-      const response = await fetch(API_ENDPOINTS.CREATE_QUIZ, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          ...formData,
-          courseId: course._id,
-          duration: parseInt(formData.duration),
-          passingScore: parseInt(formData.passingScore),
-          attempts: parseInt(formData.attempts),
-        }),
+      const response = await axios.post(API_ENDPOINTS.CREATE_QUIZ, {
+        ...formData,
+        courseId: course._id,
+        duration: parseInt(formData.duration),
+        passingScore: parseInt(formData.passingScore),
+        attempts: parseInt(formData.attempts),
       });
 
-      const data = await response.json();
-      if (data.success) {
-        onSubmit(data.data);
+      if (response.data.success) {
+        onSubmit(response.data.data);
       } else {
         // showMessage(data.message || "Error creating quiz", "error");
       }

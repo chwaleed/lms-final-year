@@ -68,12 +68,12 @@ export const studentNavigationItems = [
     label: "Explore Courses",
     path: "explore-courses",
   },
-  // {
-  //   key: "4",
-  //   icon: <QuestionCircleOutlined />,
-  //   label: "Quizzes",
-  //   path: "quizzes",
-  // },
+  {
+    key: "4",
+    icon: <QuestionCircleOutlined />,
+    label: "Quizzes",
+    path: "quizzes",
+  },
   // {
   //   key: "5",
   //   icon: <FileTextOutlined />,

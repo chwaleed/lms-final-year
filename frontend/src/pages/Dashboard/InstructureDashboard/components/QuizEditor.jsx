@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { API_ENDPOINTS } from "../../../../config/api";
 // import { useGlobalMessage } from "../../../../context/GlobalMessageProvider";
 import QuestionForm from "./QuestionForm";
+import axios from "axios";
 
 function QuizEditor({ quiz, onSubmit, onCancel }) {
   const [quizData, setQuizData] = useState(quiz);
@@ -13,14 +14,9 @@ function QuizEditor({ quiz, onSubmit, onCancel }) {
 
   const fetchQuizData = useCallback(async () => {
     try {
-      const response = await fetch(API_ENDPOINTS.QUIZ_BY_ID(quiz._id), {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      const data = await response.json();
-      if (data.success) {
-        setQuizData(data.data);
+      const response = await axios.get(API_ENDPOINTS.QUIZ_BY_ID(quiz._id));
+      if (response.data.success) {
+        setQuizData(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching quiz data:", error);
@@ -50,23 +46,15 @@ function QuizEditor({ quiz, onSubmit, onCancel }) {
 
     try {
       setLoading(true);
-      const response = await fetch(API_ENDPOINTS.UPDATE_QUIZ(quiz._id), {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          ...quizData,
-          duration: parseInt(quizData.duration),
-          passingScore: parseInt(quizData.passingScore),
-          attempts: parseInt(quizData.attempts),
-        }),
+      const response = await axios.put(API_ENDPOINTS.UPDATE_QUIZ(quiz._id), {
+        ...quizData,
+        duration: parseInt(quizData.duration),
+        passingScore: parseInt(quizData.passingScore),
+        attempts: parseInt(quizData.attempts),
       });
 
-      const data = await response.json();
-      if (data.success) {
-        setQuizData(data.data);
+      if (response.data.success) {
+        setQuizData(response.data.data);
         // showMessage("Quiz updated successfully", "success");
       } else {
         // showMessage(data.message || "Error updating quiz", "error");
@@ -97,18 +85,11 @@ function QuizEditor({ quiz, onSubmit, onCancel }) {
     }
 
     try {
-      const response = await fetch(
-        API_ENDPOINTS.DELETE_QUESTION(quiz._id, questionId),
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+      const response = await axios.delete(
+        API_ENDPOINTS.DELETE_QUESTION(quiz._id, questionId)
       );
 
-      const data = await response.json();
-      if (data.success) {
+      if (response.data.success) {
         fetchQuizData(); // Refresh quiz data
         // showMessage("Question deleted successfully", "success");
       } else {
